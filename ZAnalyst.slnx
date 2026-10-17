@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="ZAnalyst.Application/ZAnalyst.Application.csproj" />
+  <Project Path="ZAnalyst.Desktop/ZAnalyst.Desktop.csproj" />
+  <Project Path="ZAnalyst.Domain/ZAnalyst.Domain.csproj" />
+  <Project Path="ZAnalyst.Infrastructure/ZAnalyst.Infrastructure.csproj" />
+</Solution>
