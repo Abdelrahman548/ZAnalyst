@@ -1,0 +1,53 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ZAnalyst.Desktop.Controls"
+             xmlns:vm="using:ZAnalyst.Desktop.ViewModels"
+             x:Class="ZAnalyst.Desktop.Views.TemplatesView"
+             x:DataType="vm:TemplatesViewModel">
+    <StackPanel Spacing="24">
+        <Grid ColumnDefinitions="*,Auto">
+            <controls:PageHeading Title="{Binding Title}" Description="{Binding Description}" />
+            <Button Grid.Column="1" Classes="primary-button" Content="New template"
+                    IsEnabled="False" VerticalAlignment="Center" />
+        </Grid>
+        <Grid ColumnDefinitions="300,*" ColumnSpacing="16">
+            <Border Classes="surface-card" MinHeight="420">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="TEMPLATES" FontSize="11" FontWeight="SemiBold"
+                               Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <Border Background="{DynamicResource AppBackgroundBrush}" CornerRadius="8" Padding="14">
+                        <TextBlock Text="No templates yet" FontSize="13"
+                                   Foreground="{DynamicResource MutedTextBrush}" />
+                    </Border>
+                    <TextBlock Text="Templates define the buttons used to tag a match."
+                               FontSize="12" TextWrapping="Wrap"
+                               Foreground="{DynamicResource MutedTextBrush}" />
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="1" Classes="surface-card" MinHeight="420">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="TEMPLATE EDITOR" FontSize="11" FontWeight="SemiBold"
+                               Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <TextBlock Text="Build a fast tagging workflow"
+                               FontSize="18" FontWeight="SemiBold"
+                               Foreground="{DynamicResource PrimaryTextBrush}" />
+                    <TextBlock Text="Each template can combine event and player-action buttons, physical hotkeys, and single- or two-press timing."
+                               FontSize="13" TextWrapping="Wrap"
+                               Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <Border Background="{DynamicResource AppBackgroundBrush}" CornerRadius="8" Padding="14">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Button setup" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryTextBrush}" />
+                            <TextBlock Text="Name · type · color · input mode · pre/post duration · hotkey"
+                                       FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource MutedTextBrush}" />
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Text="Archived buttons stay in historical analysis but are excluded from new recordings."
+                               FontSize="12" TextWrapping="Wrap"
+                               Foreground="{DynamicResource SecondaryTextBrush}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </StackPanel>
+</UserControl>

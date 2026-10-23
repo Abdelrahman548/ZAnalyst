@@ -8,4 +8,10 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
     }
+
+    public MainWindow(ViewModels.ShellViewModel viewModel)
+        : this()
+    {
+        DataContext = viewModel;
+    }
 }

@@ -1,0 +1,43 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ZAnalyst.Desktop.Controls"
+             xmlns:vm="using:ZAnalyst.Desktop.ViewModels"
+             x:Class="ZAnalyst.Desktop.Views.TeamsView"
+             x:DataType="vm:TeamsViewModel">
+    <StackPanel Spacing="24">
+        <Grid ColumnDefinitions="*,Auto">
+            <controls:PageHeading Title="{Binding Title}" Description="{Binding Description}" />
+            <Button Grid.Column="1" Classes="primary-button" Content="Add team"
+                    IsEnabled="False" VerticalAlignment="Center" />
+        </Grid>
+        <Grid ColumnDefinitions="300,*" ColumnSpacing="16" RowDefinitions="*">
+            <Border Classes="surface-card" MinHeight="340">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="YOUR TEAMS" FontSize="11" FontWeight="SemiBold"
+                               Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <Border Background="{DynamicResource AppBackgroundBrush}" CornerRadius="8" Padding="14">
+                        <TextBlock Text="No teams yet" FontSize="13"
+                                   Foreground="{DynamicResource MutedTextBrush}" />
+                    </Border>
+                    <TextBlock Text="Teams keep player rosters organized for each match."
+                               FontSize="12" TextWrapping="Wrap"
+                               Foreground="{DynamicResource MutedTextBrush}" />
+                </StackPanel>
+            </Border>
+            <Border Grid.Column="1" Classes="surface-card" MinHeight="340">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Spacing="9" MaxWidth="360">
+                    <TextBlock Text="PLAYER ROSTER" FontSize="11" FontWeight="SemiBold"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Text="Select a team to manage its players"
+                               FontSize="16" FontWeight="SemiBold" TextAlignment="Center"
+                               Foreground="{DynamicResource PrimaryTextBrush}" />
+                    <TextBlock Text="Player name and squad number will be available here once team setup is connected."
+                               FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
+                               Foreground="{DynamicResource MutedTextBrush}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </StackPanel>
+</UserControl>

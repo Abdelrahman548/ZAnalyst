@@ -1,0 +1,13 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ZAnalyst.Desktop.Controls.PageHeading">
+    <StackPanel Spacing="6">
+        <TextBlock x:Name="TitleText"
+                   FontSize="26"
+                   FontWeight="SemiBold"
+                   Foreground="{DynamicResource PrimaryTextBrush}" />
+        <TextBlock x:Name="DescriptionText"
+                   FontSize="13"
+                   Foreground="{DynamicResource SecondaryTextBrush}" />
+    </StackPanel>
+</UserControl>

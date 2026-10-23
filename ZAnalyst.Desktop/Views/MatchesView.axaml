@@ -1,0 +1,77 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ZAnalyst.Desktop.Controls"
+             xmlns:vm="using:ZAnalyst.Desktop.ViewModels"
+             x:Class="ZAnalyst.Desktop.Views.MatchesView"
+             x:DataType="vm:MatchesViewModel">
+    <ScrollViewer>
+        <StackPanel Spacing="24">
+            <Grid ColumnDefinitions="*,Auto">
+                <controls:PageHeading Title="{Binding Title}"
+                                      Description="{Binding Description}" />
+                <Button Grid.Column="1"
+                        Classes="primary-button"
+                        Content="New match"
+                        IsEnabled="False"
+                        VerticalAlignment="Center" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="14">
+                <Border Classes="surface-card">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="MATCHES" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                        <TextBlock Text="0" FontSize="28" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource PrimaryTextBrush}" />
+                        <TextBlock Text="Ready for your first analysis"
+                                   Foreground="{DynamicResource MutedTextBrush}" FontSize="12" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Classes="surface-card">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="TEAMS" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                        <TextBlock Text="0" FontSize="28" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource PrimaryTextBrush}" />
+                        <TextBlock Text="Teams in your workspace"
+                                   Foreground="{DynamicResource MutedTextBrush}" FontSize="12" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Classes="surface-card">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="TEMPLATES" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                        <TextBlock Text="0" FontSize="28" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource PrimaryTextBrush}" />
+                        <TextBlock Text="Reusable analysis setups"
+                                   Foreground="{DynamicResource MutedTextBrush}" FontSize="12" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Border Classes="surface-card" MinHeight="250">
+                <StackPanel HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Spacing="10"
+                            MaxWidth="420">
+                    <Border Width="44" Height="44" CornerRadius="12"
+                            Background="{DynamicResource SelectedSurfaceBrush}"
+                            HorizontalAlignment="Center">
+                        <TextBlock Text="01" FontSize="14" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource AccentBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="Your match workspace starts here"
+                               FontSize="18" FontWeight="SemiBold" TextAlignment="Center"
+                               Foreground="{DynamicResource PrimaryTextBrush}" />
+                    <TextBlock Text="Create a match, attach its video, and choose an analysis template. Your recent matches will appear here."
+                               FontSize="13" TextWrapping="Wrap" TextAlignment="Center"
+                               Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <TextBlock Text="Match creation will be connected to local storage in the next workflow slice."
+                               FontSize="11" TextWrapping="Wrap" TextAlignment="Center"
+                               Foreground="{DynamicResource MutedTextBrush}" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

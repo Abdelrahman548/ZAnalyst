@@ -1,0 +1,99 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ZAnalyst.Desktop.Controls"
+             xmlns:vm="using:ZAnalyst.Desktop.ViewModels"
+             x:Class="ZAnalyst.Desktop.Views.MatchAnalysisView"
+             x:DataType="vm:MatchAnalysisViewModel">
+    <Grid RowDefinitions="Auto,*" RowSpacing="20">
+        <controls:PageHeading Title="{Binding Title}" Description="{Binding Description}" />
+        <Grid Grid.Row="1" ColumnDefinitions="2.1*,*" ColumnSpacing="16">
+            <Grid RowDefinitions="*,Auto" RowSpacing="12">
+                <Border Classes="surface-card" Padding="0" MinHeight="320">
+                    <Grid Background="#0B0F14" RowDefinitions="*,Auto">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Spacing="10" MaxWidth="400">
+                            <Border Width="52" Height="52" CornerRadius="26"
+                                    Background="{DynamicResource SelectedSurfaceBrush}"
+                                    HorizontalAlignment="Center">
+                                <TextBlock Text="▶" FontSize="20"
+                                           Foreground="{DynamicResource AccentBrush}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <TextBlock Text="Select a match to load its video"
+                                       FontSize="17" FontWeight="SemiBold" TextAlignment="Center"
+                                       Foreground="{DynamicResource PrimaryTextBrush}" />
+                            <TextBlock Text="Playback, seeking, and frame-accurate tagging will live in this workspace."
+                                       FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                        </StackPanel>
+                        <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*,Auto,Auto"
+                              ColumnSpacing="12" Margin="18,12">
+                            <Button Content="‹" IsEnabled="False" />
+                            <Button Grid.Column="1" Content="▶" IsEnabled="False" />
+                            <Slider Grid.Column="2" Minimum="0" Maximum="100" IsEnabled="False"
+                                    VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="3" Text="00:00" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock Grid.Column="4" Text="1.0×" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                        </Grid>
+                    </Grid>
+                </Border>
+                <Border Grid.Row="1" Classes="surface-card" Padding="16">
+                    <StackPanel Spacing="12">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="QUICK TAGS" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock Grid.Column="1" Text="Template buttons appear here"
+                                       FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                        </Grid>
+                        <WrapPanel ItemWidth="132" ItemHeight="42">
+                            <Button Content="Event" IsEnabled="False" Margin="0,0,8,8" />
+                            <Button Content="Action · player" IsEnabled="False" Margin="0,0,8,8" />
+                            <Button Content="Two-press tag" IsEnabled="False" Margin="0,0,8,8" />
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Border Grid.Column="1" Classes="surface-card" Padding="0">
+                <Grid RowDefinitions="Auto,*,Auto">
+                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1"
+                            Padding="18,16">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="ANALYSIS TIMELINE" FontSize="11"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource SecondaryTextBrush}" />
+                                <TextBlock Text="Entries are ordered by video time"
+                                           FontSize="12" Foreground="{DynamicResource MutedTextBrush}" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="1" Text="0 entries"
+                                       FontSize="12" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                        </Grid>
+                    </Border>
+                    <StackPanel Grid.Row="1" HorizontalAlignment="Center"
+                                VerticalAlignment="Center" Spacing="8" MaxWidth="260">
+                        <TextBlock Text="Nothing recorded yet" FontSize="15"
+                                   FontWeight="SemiBold" TextAlignment="Center"
+                                   Foreground="{DynamicResource PrimaryTextBrush}" />
+                        <TextBlock Text="Recorded events and player actions will appear here. Select an entry later to jump back to its moment."
+                                   FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
+                                   Foreground="{DynamicResource MutedTextBrush}" />
+                    </StackPanel>
+                    <Border Grid.Row="2" Background="{DynamicResource AppBackgroundBrush}"
+                            CornerRadius="0,0,12,12" Padding="16">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="PLAYER" FontSize="10" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock Text="Choose a player when recording an action"
+                                       FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource MutedTextBrush}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>
