@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using ZAnalyst.Application.Interfaces;
 
 namespace ZAnalyst.Desktop.ViewModels;
 
@@ -10,8 +11,11 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 {
     private WorkspacePageViewModel _currentPage;
 
-    public ShellViewModel()
+    private readonly TeamsViewModel _teamsViewModel;
+
+    public ShellViewModel(ITeamService teamService, IPlayerService playerService)
     {
+        _teamsViewModel = new TeamsViewModel(teamService, playerService);
         NavigateCommand = new RelayCommand(parameter =>
         {
             if (parameter is NavigationItemViewModel item)
@@ -22,7 +26,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         [
             CreateNavigationItem("Matches", "01", new MatchesViewModel()),
             CreateNavigationItem("Match analysis", "02", new MatchAnalysisViewModel()),
-            CreateNavigationItem("Teams & players", "03", new TeamsViewModel()),
+            CreateNavigationItem("Teams & players", "03", _teamsViewModel),
             CreateNavigationItem("Templates", "04", new TemplatesViewModel())
         ];
 
@@ -53,6 +57,8 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     public string CurrentTitle => CurrentPage.Title;
     public string CurrentDescription => CurrentPage.Description;
+
+    public Task InitializeAsync() => _teamsViewModel.InitializeAsync();
 
     private NavigationItemViewModel CreateNavigationItem(
         string label,

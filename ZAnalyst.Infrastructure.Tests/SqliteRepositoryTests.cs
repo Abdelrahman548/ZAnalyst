@@ -9,6 +9,8 @@ using ZAnalyst.Domain.Entities;
 using ZAnalyst.Domain.Enums;
 using ZAnalyst.Infrastructure.Persistence;
 using ZAnalyst.Infrastructure.Repositories;
+using ZAnalyst.Application.Exceptions;
+using ActionEntity = ZAnalyst.Domain.Entities.Action;
 
 namespace ZAnalyst.Infrastructure.Tests;
 
@@ -65,6 +67,63 @@ public sealed class SqliteRepositoryTests
         await using var verifyContext = new ZAnalystDbContext(options);
         Assert.Equal("Home", (await verifyContext.Teams.SingleAsync(team => team.Id == teamId)).Name);
         Assert.Equal("Player", (await verifyContext.Players.SingleAsync(player => player.Id == playerId)).Name);
+    }
+
+    [Fact]
+    public async Task PlayerServiceRejectsDeletingPlayerReferencedByAction()
+    {
+        await using var connection = await OpenDatabaseAsync();
+        var options = CreateOptions(connection);
+        var team = new Team("Team");
+        var template = new Template("Template");
+        var player = new Player("Player", 7, team.Id);
+        var match = new Match(team.Id, template.Id);
+        var button = new Button(template.Id, "Pass", System.Drawing.Color.Green, ButtonType.Action, PressMode.Single);
+        var action = new ActionEntity(
+            match.Id, button.Id, player.Id, ActionRate.Good, DateTime.UtcNow, DateTime.UtcNow, null);
+
+        await using (var seedContext = new ZAnalystDbContext(options))
+        {
+            seedContext.AddRange(team, template, player, match, button, action);
+            await seedContext.SaveChangesAsync();
+        }
+
+        await using (var context = new ZAnalystDbContext(options))
+        {
+            var service = new PlayerService(new PlayerRepository(context), context);
+            await Assert.ThrowsAsync<PlayerHasRecordedActionsException>(() => service.RemoveAsync(player.Id));
+        }
+
+        await using var verifyContext = new ZAnalystDbContext(options);
+        Assert.True(await verifyContext.Players.AnyAsync(item => item.Id == player.Id));
+    }
+
+    [Fact]
+    public async Task TeamServicePreventsDeletingTeamWithPlayersAndDeletesEmptyTeam()
+    {
+        await using var connection = await OpenDatabaseAsync();
+        var options = CreateOptions(connection);
+        Guid referencedTeamId;
+        Guid emptyTeamId;
+
+        await using (var context = new ZAnalystDbContext(options))
+        {
+            var teamService = new TeamService(new TeamRepository(context), context);
+            var playerService = new PlayerService(new PlayerRepository(context), context);
+            var referencedTeam = await teamService.CreateAsync(new Team("Referenced"));
+            var emptyTeam = await teamService.CreateAsync(new Team("Empty"));
+            await playerService.CreateAsync(new Player("Player", 1, referencedTeam.Id));
+
+            await Assert.ThrowsAsync<TeamHasPlayersOrMatchesException>(
+                () => teamService.RemoveAsync(referencedTeam.Id));
+            await teamService.RemoveAsync(emptyTeam.Id);
+            referencedTeamId = referencedTeam.Id;
+            emptyTeamId = emptyTeam.Id;
+        }
+
+        await using var verifyContext = new ZAnalystDbContext(options);
+        Assert.True(await verifyContext.Teams.AnyAsync(team => team.Id == referencedTeamId));
+        Assert.False(await verifyContext.Teams.AnyAsync(team => team.Id == emptyTeamId));
     }
 
     [Fact]

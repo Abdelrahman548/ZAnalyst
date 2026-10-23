@@ -14,6 +14,9 @@ internal sealed class PlayerRepository(ZAnalystDbContext context)
     public Task<Player?> GetByIdAsync(Guid playerId, CancellationToken cancellationToken = default) =>
         Set.FirstOrDefaultAsync(player => player.Id == playerId, cancellationToken);
 
+    public Task<bool> HasRecordedActionsAsync(Guid playerId, CancellationToken cancellationToken = default) =>
+        Context.Actions.AnyAsync(action => action.PlayerId == playerId, cancellationToken);
+
     public Task UpdateAsync(Guid playerId, Player player, CancellationToken cancellationToken = default) =>
         base.StageUpdateAsync(playerId, player, cancellationToken);
 

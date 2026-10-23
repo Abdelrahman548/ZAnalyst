@@ -1,5 +1,6 @@
 using ZAnalyst.Application.Interfaces;
 using ZAnalyst.Application.Services;
+using ZAnalyst.Application.Exceptions;
 using ZAnalyst.Domain.Entities;
 using ZAnalyst.Domain.Enums;
 using Xunit;
@@ -205,6 +206,20 @@ public sealed class ServiceTests
     }
 
     [Fact]
+    public async Task PlayerService_DoesNotDeletePlayerWithRecordedActions()
+    {
+        var repository = new PlayerRepositoryFake { HasRecordedActions = true };
+        var unitOfWork = new UnitOfWorkFake();
+        var service = new PlayerService(repository, unitOfWork);
+
+        await Assert.ThrowsAsync<PlayerHasRecordedActionsException>(
+            () => service.RemoveAsync(repository.Player.Id));
+
+        Assert.Equal(0, unitOfWork.SaveCount);
+        Assert.Equal(0, repository.RemoveCount);
+    }
+
+    [Fact]
     public async Task TeamService_ForwardsAllOperationsAndCancellationTokens()
     {
         var repository = new TeamRepositoryFake();
@@ -219,6 +234,9 @@ public sealed class ServiceTests
 
         Assert.Same(repository.Team, await service.GetByIdAsync(team.Id, TestToken));
         Assert.Equal(team.Id, repository.LastId);
+        Assert.Equal(TestToken, repository.LastToken);
+
+        Assert.Same(repository.Teams, await service.GetAllAsync(TestToken));
         Assert.Equal(TestToken, repository.LastToken);
 
         Assert.Same(repository.Team, await service.GetByIdWithPlayersAsync(team.Id, TestToken));
@@ -258,6 +276,20 @@ public sealed class ServiceTests
     }
 
     [Fact]
+    public async Task TeamService_DoesNotDeleteTeamWithPlayersOrMatches()
+    {
+        var repository = new TeamRepositoryFake { HasPlayersOrMatches = true };
+        var unitOfWork = new UnitOfWorkFake();
+        var service = new TeamService(repository, unitOfWork);
+
+        await Assert.ThrowsAsync<TeamHasPlayersOrMatchesException>(
+            () => service.RemoveAsync(repository.Team.Id));
+
+        Assert.Equal(0, unitOfWork.SaveCount);
+        Assert.Equal(0, repository.RemoveCount);
+    }
+
+    [Fact]
     public void DomainEntities_ValidateRequiredFieldsAndKeepNotes()
     {
         Assert.Throws<ArgumentException>(() => new Team(" "));
@@ -291,6 +323,7 @@ public sealed class ServiceTests
     private abstract class RepositoryFake
     {
         public int CallCount { get; protected set; }
+        public int RemoveCount { get; protected set; }
         public Guid LastId { get; protected set; }
         public Guid LastRelatedId { get; protected set; }
         public Entity? LastEntity { get; protected set; }
@@ -448,6 +481,7 @@ public sealed class ServiceTests
     private sealed class PlayerRepositoryFake : RepositoryFake, IPlayerRepository
     {
         public Player Player { get; } = CreatePlayer();
+        public bool HasRecordedActions { get; set; }
 
         public Task AddAsync(Player player, CancellationToken cancellationToken = default)
         {
@@ -462,6 +496,12 @@ public sealed class ServiceTests
             return Task.FromResult<Player?>(Player);
         }
 
+        public Task<bool> HasRecordedActionsAsync(Guid playerId, CancellationToken cancellationToken = default)
+        {
+            Record(playerId, cancellationToken);
+            return Task.FromResult(HasRecordedActions);
+        }
+
         public Task UpdateAsync(Guid playerId, Player player, CancellationToken cancellationToken = default)
         {
             Record(playerId, cancellationToken);
@@ -472,6 +512,7 @@ public sealed class ServiceTests
         public Task RemoveAsync(Guid playerId, CancellationToken cancellationToken = default)
         {
             Record(playerId, cancellationToken);
+            RemoveCount++;
             return Task.CompletedTask;
         }
 
@@ -486,6 +527,8 @@ public sealed class ServiceTests
     private sealed class TeamRepositoryFake : RepositoryFake, ITeamRepository
     {
         public Team Team { get; } = new("Team");
+        public IReadOnlyList<Team> Teams { get; } = [new("Team")];
+        public bool HasPlayersOrMatches { get; set; }
 
         public Task AddAsync(Team team, CancellationToken cancellationToken = default)
         {
@@ -500,6 +543,13 @@ public sealed class ServiceTests
             return Task.FromResult<Team?>(Team);
         }
 
+        public Task<IReadOnlyList<Team>> GetAllAsync(CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            LastToken = cancellationToken;
+            return Task.FromResult(Teams);
+        }
+
         public Task<Team?> GetByIdWithPlayersAsync(Guid teamId, CancellationToken cancellationToken = default)
         {
             Record(teamId, cancellationToken);
@@ -512,6 +562,12 @@ public sealed class ServiceTests
             return Task.FromResult<Team?>(Team);
         }
 
+        public Task<bool> HasPlayersOrMatchesAsync(Guid teamId, CancellationToken cancellationToken = default)
+        {
+            Record(teamId, cancellationToken);
+            return Task.FromResult(HasPlayersOrMatches);
+        }
+
         public Task UpdateAsync(Guid teamId, Team team, CancellationToken cancellationToken = default)
         {
             Record(teamId, cancellationToken);
@@ -522,6 +578,7 @@ public sealed class ServiceTests
         public Task RemoveAsync(Guid teamId, CancellationToken cancellationToken = default)
         {
             Record(teamId, cancellationToken);
+            RemoveCount++;
             return Task.CompletedTask;
         }
 

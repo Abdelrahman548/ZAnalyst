@@ -1,4 +1,5 @@
 using ZAnalyst.Application.Interfaces;
+using ZAnalyst.Application.Exceptions;
 using ZAnalyst.Domain.Entities;
 
 namespace ZAnalyst.Application.Services;
@@ -31,6 +32,9 @@ public sealed class PlayerService(IPlayerRepository repository, IUnitOfWork unit
     public async Task RemoveAsync(Guid playerId, CancellationToken cancellationToken = default)
     {
         ServiceGuard.AgainstEmptyId(playerId, nameof(playerId));
+        if (await _repository.HasRecordedActionsAsync(playerId, cancellationToken))
+            throw new PlayerHasRecordedActionsException(playerId);
+
         await _repository.RemoveAsync(playerId, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }

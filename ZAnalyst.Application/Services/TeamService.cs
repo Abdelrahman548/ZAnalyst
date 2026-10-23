@@ -1,4 +1,5 @@
 using ZAnalyst.Application.Interfaces;
+using ZAnalyst.Application.Exceptions;
 using ZAnalyst.Domain.Entities;
 
 namespace ZAnalyst.Application.Services;
@@ -22,6 +23,9 @@ public sealed class TeamService(ITeamRepository repository, IUnitOfWork unitOfWo
         return _repository.GetByIdAsync(teamId, cancellationToken);
     }
 
+    public Task<IReadOnlyList<Team>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        _repository.GetAllAsync(cancellationToken);
+
     public Task<Team?> GetByIdWithPlayersAsync(Guid teamId, CancellationToken cancellationToken = default)
     {
         ServiceGuard.AgainstEmptyId(teamId, nameof(teamId));
@@ -43,6 +47,9 @@ public sealed class TeamService(ITeamRepository repository, IUnitOfWork unitOfWo
     public async Task RemoveAsync(Guid teamId, CancellationToken cancellationToken = default)
     {
         ServiceGuard.AgainstEmptyId(teamId, nameof(teamId));
+        if (await _repository.HasPlayersOrMatchesAsync(teamId, cancellationToken))
+            throw new TeamHasPlayersOrMatchesException(teamId);
+
         await _repository.RemoveAsync(teamId, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
