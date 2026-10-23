@@ -31,6 +31,8 @@ public class Action: Entity
             throw new ArgumentException("Match id cannot be empty.");
         if(buttonId == Guid.Empty)
             throw new ArgumentException("Button id cannot be empty.");
+        if(playerId == Guid.Empty)
+            throw new ArgumentException("Player id cannot be empty.");
         
         MatchId = matchId;
         ButtonId = buttonId;
@@ -38,6 +40,7 @@ public class Action: Entity
         Rate = rate;
         StartTime = startTime; 
         EndTime = endTime;
+        Note = note;
         CreatedAt = DateTime.Now;
         UpdatedAt = DateTime.Now;
     }
@@ -59,6 +62,9 @@ public class Action: Entity
     
     public void UpdatePlayer(Guid playerId)
     {
+        if (playerId == Guid.Empty)
+            throw new ArgumentException("Player id cannot be empty.", nameof(playerId));
+
         PlayerId = playerId;
         UpdatedAt = DateTime.Now;
     }

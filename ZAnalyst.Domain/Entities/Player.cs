@@ -20,11 +20,14 @@ public class Player: Entity
 
     public void Update(string name, int number, Guid teamId)
     {
-        if (string.IsNullOrEmpty(name))
-            throw new ArgumentException("Name cannot be null or empty.", nameof(name));
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Name cannot be null or whitespace.", nameof(name));
         if(number < 0)
             throw new ArgumentException("Number cannot be negative.", nameof(number));
-        Name = name;
+        if (teamId == Guid.Empty)
+            throw new ArgumentException("Team id cannot be empty.", nameof(teamId));
+
+        Name = name.Trim();
         Number = number;
         TeamId = teamId;
     }

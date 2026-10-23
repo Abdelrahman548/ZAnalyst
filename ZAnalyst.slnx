@@ -3,4 +3,6 @@
   <Project Path="ZAnalyst.Desktop/ZAnalyst.Desktop.csproj" />
   <Project Path="ZAnalyst.Domain/ZAnalyst.Domain.csproj" />
   <Project Path="ZAnalyst.Infrastructure/ZAnalyst.Infrastructure.csproj" />
+  <Project Path="ZAnalyst.Application.Tests/ZAnalyst.Application.Tests.csproj" />
+  <Project Path="ZAnalyst.Infrastructure.Tests/ZAnalyst.Infrastructure.Tests.csproj" />
 </Solution>

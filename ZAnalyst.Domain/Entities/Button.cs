@@ -28,7 +28,9 @@ public class Button: Entity
     {
         if(templateId == Guid.Empty)
             throw new ArgumentException("Template id cannot be empty.");
-        Name = name ?? throw new ArgumentNullException(nameof(name));
+        ValidateName(name);
+        ValidatePressDurations(preSec, postSec);
+        Name = name.Trim();
         Color = color;
         Type = type;
         Mode = mode;
@@ -56,6 +58,8 @@ public class Button: Entity
 
     public void ToDoublePressMode(float preSec, float postSec)
     {
+        ValidatePressDurations(preSec, postSec);
+        Mode = PressMode.Double;
         PreSec = preSec;
         PostSec = postSec;
         UpdatedAt = DateTime.Now;
@@ -69,7 +73,8 @@ public class Button: Entity
 
     public void UpdateName(string name)
     {
-        Name = name;
+        ValidateName(name);
+        Name = name.Trim();
         UpdatedAt = DateTime.Now;
     }
     public void UpdateNote(string note)
@@ -89,5 +94,19 @@ public class Button: Entity
     {
         Archived = false;
         UpdatedAt = DateTime.Now;
+    }
+
+    private static void ValidateName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Name cannot be null or whitespace.", nameof(name));
+    }
+
+    private static void ValidatePressDurations(float preSec, float postSec)
+    {
+        if (!float.IsFinite(preSec) || preSec < 0)
+            throw new ArgumentOutOfRangeException(nameof(preSec), "Duration must be finite and non-negative.");
+        if (!float.IsFinite(postSec) || postSec < 0)
+            throw new ArgumentOutOfRangeException(nameof(postSec), "Duration must be finite and non-negative.");
     }
 }

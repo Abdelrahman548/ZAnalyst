@@ -31,6 +31,7 @@ public class Event: Entity
         ButtonId = buttonId;
         StartTime = startTime; 
         EndTime = endTime;
+        Note = note;
         CreatedAt = DateTime.Now;
         UpdatedAt = DateTime.Now;
     }
