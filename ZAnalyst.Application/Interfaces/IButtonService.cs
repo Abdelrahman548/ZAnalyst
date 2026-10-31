@@ -11,6 +11,7 @@ public interface IButtonService
         bool includeArchived = false,
         CancellationToken cancellationToken = default);
     Task UpdateAsync(Guid buttonId, Button button, CancellationToken cancellationToken = default);
+    Task RemoveAsync(Guid buttonId, CancellationToken cancellationToken = default);
     Task ArchiveAsync(Guid buttonId, CancellationToken cancellationToken = default);
     Task UnarchiveAsync(Guid buttonId, CancellationToken cancellationToken = default);
 }

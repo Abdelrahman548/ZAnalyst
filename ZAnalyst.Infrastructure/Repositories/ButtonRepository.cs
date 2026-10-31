@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using ZAnalyst.Application.Exceptions;
 using ZAnalyst.Application.Interfaces;
 using ZAnalyst.Domain.Entities;
 using ZAnalyst.Infrastructure.Persistence;
@@ -28,6 +29,17 @@ internal sealed class ButtonRepository(ZAnalystDbContext context)
 
     public Task UpdateAsync(Guid buttonId, Button button, CancellationToken cancellationToken = default) =>
         base.StageUpdateAsync(buttonId, button, cancellationToken);
+
+    public async Task RemoveAsync(Guid buttonId, CancellationToken cancellationToken = default)
+    {
+        if (await Context.Events.AnyAsync(domainEvent => domainEvent.ButtonId == buttonId, cancellationToken)
+            || await Context.Actions.AnyAsync(action => action.ButtonId == buttonId, cancellationToken))
+        {
+            throw new ButtonInUseException(buttonId);
+        }
+
+        await base.StageRemoveAsync(buttonId, cancellationToken);
+    }
 
     public Task ArchiveAsync(Guid buttonId, CancellationToken cancellationToken = default) =>
         UpdateArchiveStateAsync(buttonId, archive: true, cancellationToken);

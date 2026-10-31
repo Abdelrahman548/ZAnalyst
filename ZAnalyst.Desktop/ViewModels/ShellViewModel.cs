@@ -12,10 +12,16 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     private WorkspacePageViewModel _currentPage;
 
     private readonly TeamsViewModel _teamsViewModel;
+    private readonly TemplatesViewModel _templatesViewModel;
 
-    public ShellViewModel(ITeamService teamService, IPlayerService playerService)
+    public ShellViewModel(
+        ITeamService teamService,
+        IPlayerService playerService,
+        ITemplateService templateService,
+        IButtonService buttonService)
     {
         _teamsViewModel = new TeamsViewModel(teamService, playerService);
+        _templatesViewModel = new TemplatesViewModel(templateService, buttonService);
         NavigateCommand = new RelayCommand(parameter =>
         {
             if (parameter is NavigationItemViewModel item)
@@ -27,7 +33,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
             CreateNavigationItem("Matches", "01", new MatchesViewModel()),
             CreateNavigationItem("Match analysis", "02", new MatchAnalysisViewModel()),
             CreateNavigationItem("Teams & players", "03", _teamsViewModel),
-            CreateNavigationItem("Templates", "04", new TemplatesViewModel())
+            CreateNavigationItem("Templates", "04", _templatesViewModel)
         ];
 
         _currentPage = NavigationItems[0].Page;
@@ -58,7 +64,11 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     public string CurrentTitle => CurrentPage.Title;
     public string CurrentDescription => CurrentPage.Description;
 
-    public Task InitializeAsync() => _teamsViewModel.InitializeAsync();
+    public async Task InitializeAsync()
+    {
+        await _teamsViewModel.InitializeAsync();
+        await _templatesViewModel.InitializeAsync();
+    }
 
     private NavigationItemViewModel CreateNavigationItem(
         string label,

@@ -2,52 +2,212 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:ZAnalyst.Desktop.Controls"
              xmlns:vm="using:ZAnalyst.Desktop.ViewModels"
+             xmlns:domain="using:ZAnalyst.Domain.Entities"
              x:Class="ZAnalyst.Desktop.Views.TemplatesView"
              x:DataType="vm:TemplatesViewModel">
-    <StackPanel Spacing="24">
+    <Grid RowDefinitions="Auto,*,Auto" RowSpacing="16">
         <Grid ColumnDefinitions="*,Auto">
             <controls:PageHeading Title="{Binding Title}" Description="{Binding Description}" />
-            <Button Grid.Column="1" Classes="primary-button" Content="New template"
-                    IsEnabled="False" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Content="Refresh" Command="{Binding RefreshCommand}"
+                    IsEnabled="{Binding IsNotBusy}" VerticalAlignment="Center" />
         </Grid>
-        <Grid ColumnDefinitions="300,*" ColumnSpacing="16">
-            <Border Classes="surface-card" MinHeight="420">
-                <StackPanel Spacing="14">
-                    <TextBlock Text="TEMPLATES" FontSize="11" FontWeight="SemiBold"
-                               Foreground="{DynamicResource SecondaryTextBrush}" />
-                    <Border Background="{DynamicResource AppBackgroundBrush}" CornerRadius="8" Padding="14">
-                        <TextBlock Text="No templates yet" FontSize="13"
-                                   Foreground="{DynamicResource MutedTextBrush}" />
-                    </Border>
-                    <TextBlock Text="Templates define the buttons used to tag a match."
-                               FontSize="12" TextWrapping="Wrap"
-                               Foreground="{DynamicResource MutedTextBrush}" />
-                </StackPanel>
-            </Border>
-            <Border Grid.Column="1" Classes="surface-card" MinHeight="420">
-                <StackPanel Spacing="14">
-                    <TextBlock Text="TEMPLATE EDITOR" FontSize="11" FontWeight="SemiBold"
-                               Foreground="{DynamicResource SecondaryTextBrush}" />
-                    <TextBlock Text="Build a fast tagging workflow"
-                               FontSize="18" FontWeight="SemiBold"
-                               Foreground="{DynamicResource PrimaryTextBrush}" />
-                    <TextBlock Text="Each template can combine event and player-action buttons, physical hotkeys, and single- or two-press timing."
-                               FontSize="13" TextWrapping="Wrap"
-                               Foreground="{DynamicResource SecondaryTextBrush}" />
-                    <Border Background="{DynamicResource AppBackgroundBrush}" CornerRadius="8" Padding="14">
-                        <StackPanel Spacing="8">
-                            <TextBlock Text="Button setup" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource PrimaryTextBrush}" />
-                            <TextBlock Text="Name · type · color · input mode · pre/post duration · hotkey"
-                                       FontSize="12" TextWrapping="Wrap"
+
+        <Grid Grid.Row="1" ColumnDefinitions="320,*" ColumnSpacing="16">
+            <Border Classes="surface-card" Padding="18">
+                <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="TEMPLATES" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock Text="Reusable match setups" FontSize="12"
                                        Foreground="{DynamicResource MutedTextBrush}" />
                         </StackPanel>
-                    </Border>
-                    <TextBlock Text="Archived buttons stay in historical analysis but are excluded from new recordings."
+                        <Border Grid.Column="1" Background="{DynamicResource AppBackgroundBrush}"
+                                CornerRadius="14" Padding="10,5" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Templates.Count}" FontSize="11"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                        </Border>
+                    </Grid>
+
+                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <TextBox Text="{Binding NewTemplateName}" PlaceholderText="New template name"
+                                 IsEnabled="{Binding IsNotBusy}" />
+                        <Button Grid.Column="1" Classes="primary-button" Content="Add"
+                                Command="{Binding CreateTemplateCommand}" />
+                    </Grid>
+
+                    <TextBlock Grid.Row="2" Text="Select a template to manage its buttons."
                                FontSize="12" TextWrapping="Wrap"
-                               Foreground="{DynamicResource SecondaryTextBrush}" />
-                </StackPanel>
+                               Foreground="{DynamicResource MutedTextBrush}" />
+
+                    <Grid Grid.Row="3">
+                        <ListBox ItemsSource="{Binding Templates}"
+                                 SelectedItem="{Binding SelectedTemplate, Mode=TwoWay}"
+                                 IsEnabled="{Binding IsNotBusy}"
+                                 Background="Transparent" BorderThickness="0" Padding="0">
+                            <ListBox.Styles>
+                                <Style Selector="ListBoxItem">
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="Background" Value="Transparent" />
+                                    <Setter Property="CornerRadius" Value="8" />
+                                </Style>
+                                <Style Selector="ListBoxItem:pointerover">
+                                    <Setter Property="Background" Value="{DynamicResource HoverSurfaceBrush}" />
+                                </Style>
+                                <Style Selector="ListBoxItem:selected">
+                                    <Setter Property="Background" Value="{DynamicResource SelectedSurfaceBrush}" />
+                                </Style>
+                            </ListBox.Styles>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="domain:Template">
+                                    <Border Padding="12" Margin="0,0,0,5" CornerRadius="8">
+                                        <TextBlock Text="{Binding Name}" FontSize="13"
+                                                   Foreground="{DynamicResource PrimaryTextBrush}" />
+                                    </Border>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <StackPanel IsVisible="{Binding HasNoTemplates}"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Spacing="7" MaxWidth="220">
+                            <TextBlock Text="No templates yet" FontSize="14" FontWeight="SemiBold"
+                                       TextAlignment="Center"
+                                       Foreground="{DynamicResource PrimaryTextBrush}" />
+                            <TextBlock Text="Add a template to define buttons for match analysis."
+                                       FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
+                                       Foreground="{DynamicResource MutedTextBrush}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid Grid.Row="4" ColumnDefinitions="*,Auto" ColumnSpacing="8"
+                          IsVisible="{Binding HasSelectedTemplate}">
+                        <TextBox Text="{Binding EditTemplateName}" PlaceholderText="Template name"
+                                 IsEnabled="{Binding IsNotBusy}" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                            <Button Content="Save" Command="{Binding UpdateTemplateCommand}" />
+                            <Button Content="Delete" Command="{Binding DeleteTemplateCommand}" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1" Classes="surface-card" Padding="20">
+                <Grid RowDefinitions="Auto,*,Auto" RowSpacing="14">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="BUTTON SETUP" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock Text="{Binding SelectedTemplate.Name}" FontSize="18" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryTextBrush}" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="New button" Command="{Binding NewButtonCommand}"
+                                IsEnabled="{Binding HasSelectedTemplate}" VerticalAlignment="Center" />
+                    </Grid>
+
+                    <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="16">
+                        <Border Background="{DynamicResource AppBackgroundBrush}" CornerRadius="8" Padding="14">
+                            <Grid RowDefinitions="Auto,*" RowSpacing="10">
+                                <TextBlock Text="BUTTONS" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource SecondaryTextBrush}" />
+                                <Grid Grid.Row="1">
+                                    <ScrollViewer>
+                                        <ItemsControl ItemsSource="{Binding Buttons}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="domain:Button">
+                                                    <Button Command="{Binding $parent[UserControl].((vm:TemplatesViewModel)DataContext).SelectButtonCommand}"
+                                                            CommandParameter="{Binding}"
+                                                            Background="Transparent" BorderThickness="0"
+                                                            HorizontalContentAlignment="Stretch"
+                                                            Padding="0" Margin="0,0,0,6">
+                                                        <Border Padding="10" CornerRadius="7"
+                                                                Background="{DynamicResource CardBackgroundBrush}">
+                                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="9">
+                                                                <StackPanel Spacing="3">
+                                                                    <TextBlock Text="{Binding Name}" FontSize="13"
+                                                                               Foreground="{DynamicResource PrimaryTextBrush}" />
+                                                                    <TextBlock Text="{Binding Type}" FontSize="11"
+                                                                               Foreground="{DynamicResource MutedTextBrush}" />
+                                                                </StackPanel>
+                                                                <TextBlock Grid.Column="1" Text="ARCHIVED" FontSize="9"
+                                                                           VerticalAlignment="Center"
+                                                                           Foreground="{DynamicResource WarningBrush}"
+                                                                           IsVisible="{Binding Archived}" />
+                                                            </Grid>
+                                                        </Border>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                    <TextBlock Text="No buttons in this template yet."
+                                               IsVisible="{Binding HasNoButtons}"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               TextWrapping="Wrap" TextAlignment="Center"
+                                               Foreground="{DynamicResource MutedTextBrush}" />
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Column="1" Background="{DynamicResource AppBackgroundBrush}"
+                                CornerRadius="8" Padding="14">
+                            <ScrollViewer>
+                                <StackPanel Spacing="10" IsEnabled="{Binding IsNotBusy}">
+                                    <TextBlock Text="BUTTON DETAILS" FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource SecondaryTextBrush}" />
+                                    <TextBox Text="{Binding ButtonName}" PlaceholderText="Button name" />
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                        <ComboBox ItemsSource="{Binding ButtonTypes}" SelectedItem="{Binding SelectedButtonType}"
+                                                  PlaceholderText="Button type" />
+                                        <ComboBox Grid.Column="1" ItemsSource="{Binding PressModes}"
+                                                  SelectedItem="{Binding SelectedPressMode}" PlaceholderText="Press mode" />
+                                    </Grid>
+                                    <TextBox Text="{Binding ButtonColor}" PlaceholderText="Color (#RRGGBB)" />
+                                    <TextBox Text="{Binding Hotkey}" PlaceholderText="Hotkey (optional)" />
+                                    <TextBox Text="{Binding Note}" PlaceholderText="Note (optional)" />
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8"
+                                          IsVisible="{Binding IsSinglePressMode}">
+                                        <TextBox Text="{Binding PreSeconds}" PlaceholderText="Seconds before press" />
+                                        <TextBox Grid.Column="1" Text="{Binding PostSeconds}" PlaceholderText="Seconds after press" />
+                                    </Grid>
+                                    <TextBlock Text="First press marks the segment start; second press marks its end."
+                                               IsVisible="{Binding IsDoublePressMode}"
+                                               FontSize="11" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource MutedTextBrush}" />
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button Classes="primary-button" Content="Add button"
+                                                Command="{Binding CreateButtonCommand}"
+                                                IsVisible="{Binding IsCreatingButton}"
+                                                IsEnabled="{Binding IsNotBusy}" />
+                                        <Button Classes="primary-button" Content="Save changes"
+                                                Command="{Binding UpdateButtonCommand}"
+                                                IsVisible="{Binding HasSelectedButton}"
+                                                IsEnabled="{Binding IsNotBusy}" />
+                                        <Button Content="Archive" Command="{Binding ArchiveButtonCommand}"
+                                                IsVisible="{Binding HasArchivableSelectedButton}"
+                                                IsEnabled="{Binding IsNotBusy}" />
+                                        <Button Content="Restore" Command="{Binding UnarchiveButtonCommand}"
+                                                IsVisible="{Binding HasArchivedSelectedButton}"
+                                                IsEnabled="{Binding IsNotBusy}" />
+                                        <Button Content="Delete" Command="{Binding DeleteButtonCommand}"
+                                                IsVisible="{Binding HasSelectedButton}"
+                                                IsEnabled="{Binding IsNotBusy}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+
+                    <TextBlock Grid.Row="2" Text="Archived buttons remain available for historical analysis but are excluded from new recordings."
+                               FontSize="11" TextWrapping="Wrap"
+                               Foreground="{DynamicResource MutedTextBrush}" />
+                </Grid>
             </Border>
         </Grid>
-    </StackPanel>
+
+        <Border Grid.Row="2" IsVisible="{Binding HasError}" Background="#3A2528"
+                CornerRadius="7" Padding="12">
+            <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap"
+                       Foreground="{DynamicResource ErrorBrush}" />
+        </Border>
+    </Grid>
 </UserControl>

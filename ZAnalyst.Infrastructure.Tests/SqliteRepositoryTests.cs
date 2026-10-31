@@ -29,6 +29,7 @@ public sealed class SqliteRepositoryTests
             var templateService = new TemplateService(new TemplateRepository(context), context);
             var buttonService = new ButtonService(new ButtonRepository(context), context);
             var template = await templateService.CreateAsync(new Template("Soccer"));
+            Assert.Contains(await templateService.GetAllAsync(), item => item.Id == template.Id);
             var button = await buttonService.CreateAsync(
                 new Button(template.Id, "Goal", System.Drawing.Color.Green, ButtonType.Event, PressMode.Single));
 
@@ -43,6 +44,57 @@ public sealed class SqliteRepositoryTests
             .SingleAsync(template => template.Id == templateId);
         Assert.Equal("Soccer", templateWithButtons.Name);
         Assert.Contains(templateWithButtons.Buttons, button => button.Id == buttonId && button.Archived);
+    }
+
+    [Fact]
+    public async Task TemplateAndButtonDeletionAllowsUnusedRecordsAndRejectsRecordsInUse()
+    {
+        await using var connection = await OpenDatabaseAsync();
+        var options = CreateOptions(connection);
+        var team = new Team("Home");
+        var matchTemplate = new Template("Used by match");
+        var unusedTemplate = new Template("Unused");
+        var buttonTemplate = new Template("Button used by a recorded event");
+        var match = new Match(team.Id, matchTemplate.Id);
+        var unusedButton = new Button(
+            unusedTemplate.Id, "Unused button", System.Drawing.Color.Green, ButtonType.Event, PressMode.Single);
+        var templateChildButton = new Button(
+            unusedTemplate.Id, "Template child", System.Drawing.Color.Blue, ButtonType.Action, PressMode.Single);
+        var buttonUsedByEvent = new Button(
+            buttonTemplate.Id, "Recorded button", System.Drawing.Color.Red, ButtonType.Event, PressMode.Single);
+        var eventTime = DateTime.UtcNow;
+        var recordedEvent = new ZAnalyst.Domain.Entities.Event(
+            match.Id, buttonUsedByEvent.Id, eventTime, eventTime, null);
+
+        await using (var seedContext = new ZAnalystDbContext(options))
+        {
+            seedContext.AddRange(
+                team, matchTemplate, unusedTemplate, buttonTemplate, match,
+                unusedButton, templateChildButton, buttonUsedByEvent, recordedEvent);
+            await seedContext.SaveChangesAsync();
+        }
+
+        await using (var context = new ZAnalystDbContext(options))
+        {
+            var templateService = new TemplateService(new TemplateRepository(context), context);
+            var buttonService = new ButtonService(new ButtonRepository(context), context);
+
+            await buttonService.RemoveAsync(unusedButton.Id);
+            await templateService.RemoveAsync(unusedTemplate.Id);
+
+            await Assert.ThrowsAsync<ButtonInUseException>(() => buttonService.RemoveAsync(buttonUsedByEvent.Id));
+            await Assert.ThrowsAsync<TemplateInUseException>(() => templateService.RemoveAsync(buttonTemplate.Id));
+            await Assert.ThrowsAsync<TemplateInUseException>(() => templateService.RemoveAsync(matchTemplate.Id));
+        }
+
+        await using var verifyContext = new ZAnalystDbContext(options);
+        Assert.False(await verifyContext.Buttons.AnyAsync(button => button.Id == unusedButton.Id));
+        Assert.False(await verifyContext.Buttons.AnyAsync(button => button.Id == templateChildButton.Id));
+        Assert.False(await verifyContext.Templates.AnyAsync(template => template.Id == unusedTemplate.Id));
+        Assert.False(await verifyContext.Buttons.AnyAsync(button => button.TemplateId == unusedTemplate.Id));
+        Assert.True(await verifyContext.Buttons.AnyAsync(button => button.Id == buttonUsedByEvent.Id));
+        Assert.True(await verifyContext.Templates.AnyAsync(template => template.Id == buttonTemplate.Id));
+        Assert.True(await verifyContext.Templates.AnyAsync(template => template.Id == matchTemplate.Id));
     }
 
     [Fact]

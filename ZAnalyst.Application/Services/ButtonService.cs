@@ -44,6 +44,13 @@ public sealed class ButtonService(IButtonRepository repository, IUnitOfWork unit
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task RemoveAsync(Guid buttonId, CancellationToken cancellationToken = default)
+    {
+        ServiceGuard.AgainstEmptyId(buttonId, nameof(buttonId));
+        await _repository.RemoveAsync(buttonId, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task UnarchiveAsync(Guid buttonId, CancellationToken cancellationToken = default)
     {
         ServiceGuard.AgainstEmptyId(buttonId, nameof(buttonId));

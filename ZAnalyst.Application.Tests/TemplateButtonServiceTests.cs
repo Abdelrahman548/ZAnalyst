@@ -23,6 +23,7 @@ public sealed class TemplateButtonServiceTests
 
         Assert.Same(repository.Template, await service.GetByIdAsync(template.Id));
         Assert.Same(repository.Template, await service.GetByIdWithButtonsAsync(template.Id));
+        Assert.Same(repository.Templates, await service.GetAllAsync());
 
         await service.UpdateAsync(template.Id, template);
         Assert.Same(template, repository.LastTemplate);
@@ -72,9 +73,13 @@ public sealed class TemplateButtonServiceTests
         Assert.Equal(button.Id, repository.LastId);
         Assert.Equal(3, unitOfWork.SaveCount);
 
-        await service.UnarchiveAsync(button.Id);
+        await service.RemoveAsync(button.Id);
         Assert.Equal(button.Id, repository.LastId);
         Assert.Equal(4, unitOfWork.SaveCount);
+
+        await service.UnarchiveAsync(button.Id);
+        Assert.Equal(button.Id, repository.LastId);
+        Assert.Equal(5, unitOfWork.SaveCount);
     }
 
     [Fact]
@@ -87,6 +92,7 @@ public sealed class TemplateButtonServiceTests
         await Assert.ThrowsAsync<ArgumentException>(() => service.GetByIdAsync(Guid.Empty));
         await Assert.ThrowsAsync<ArgumentException>(() => service.GetTemplateButtonsAsync(Guid.Empty));
         await Assert.ThrowsAsync<ArgumentException>(() => service.UpdateAsync(Guid.NewGuid(), CreateButton()));
+        await Assert.ThrowsAsync<ArgumentException>(() => service.RemoveAsync(Guid.Empty));
         await Assert.ThrowsAsync<ArgumentException>(() => service.ArchiveAsync(Guid.Empty));
         await Assert.ThrowsAsync<ArgumentException>(() => service.UnarchiveAsync(Guid.Empty));
         Assert.Equal(0, repository.CallCount);
@@ -99,13 +105,61 @@ public sealed class TemplateButtonServiceTests
         Assert.Throws<ArgumentException>(() => CreateButton(name: " "));
 
         var button = CreateButton();
-        button.ToDoublePressMode(0.5f, 1.5f);
+        button.ToSinglePressMode(0.5f, 1.5f);
 
-        Assert.Equal(PressMode.Double, button.Mode);
+        Assert.Equal(PressMode.Single, button.Mode);
         Assert.Equal(0.5f, button.PreSec);
         Assert.Equal(1.5f, button.PostSec);
-        Assert.Throws<ArgumentOutOfRangeException>(() => button.ToDoublePressMode(-1, 0));
-        Assert.Throws<ArgumentOutOfRangeException>(() => button.ToDoublePressMode(float.NaN, 0));
+
+        button.ToDoublePressMode();
+
+        Assert.Equal(PressMode.Double, button.Mode);
+        Assert.Equal(0, button.PreSec);
+        Assert.Equal(0, button.PostSec);
+        Assert.Throws<ArgumentOutOfRangeException>(() => button.ToSinglePressMode(-1, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => button.ToSinglePressMode(float.NaN, 0));
+    }
+
+    [Fact]
+    public void ButtonUpdateConfigurationUpdatesAllEditableSettingsAndValidatesDurations()
+    {
+        var button = CreateButton();
+
+        button.UpdateConfiguration(
+            "  Assist  ",
+            Color.Blue,
+            ButtonType.Action,
+            PressMode.Double,
+            "F2",
+            "  Note  ",
+            0.25f,
+            0.75f);
+
+        Assert.Equal("Assist", button.Name);
+        Assert.Equal(Color.Blue, button.Color);
+        Assert.Equal(ButtonType.Action, button.Type);
+        Assert.Equal(PressMode.Double, button.Mode);
+        Assert.Equal("F2", button.HotKey);
+        Assert.Equal("  Note  ", button.Note);
+        Assert.Equal(0, button.PreSec);
+        Assert.Equal(0, button.PostSec);
+
+        button.UpdateConfiguration(
+            "Assist",
+            Color.Blue,
+            ButtonType.Action,
+            PressMode.Single,
+            "F2",
+            "Note",
+            0.25f,
+            0.75f);
+        Assert.Equal(0.25f, button.PreSec);
+        Assert.Equal(0.75f, button.PostSec);
+
+        Assert.Throws<ArgumentException>(() => button.UpdateConfiguration(
+            " ", Color.Red, ButtonType.Event, PressMode.Single, null, null, 0, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => button.UpdateConfiguration(
+            "Valid", Color.Red, ButtonType.Event, PressMode.Single, null, null, -1, 0));
     }
 
     private static Button CreateButton(string name = "Goal") =>
@@ -127,6 +181,7 @@ public sealed class TemplateButtonServiceTests
         public int CallCount { get; private set; }
         public Guid LastId { get; private set; }
         public Template Template { get; } = new("Template");
+        public IReadOnlyList<Template> Templates { get; } = [new Template("Template")];
         public Template? LastTemplate { get; private set; }
 
         public Task AddAsync(Template template, CancellationToken cancellationToken = default)
@@ -141,6 +196,12 @@ public sealed class TemplateButtonServiceTests
             CallCount++;
             LastId = templateId;
             return Task.FromResult<Template?>(Template);
+        }
+
+        public Task<IReadOnlyList<Template>> GetAllAsync(CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            return Task.FromResult(Templates);
         }
 
         public Task<Template?> GetByIdWithButtonsAsync(Guid templateId, CancellationToken cancellationToken = default)
@@ -205,6 +266,13 @@ public sealed class TemplateButtonServiceTests
             CallCount++;
             LastId = buttonId;
             LastButton = button;
+            return Task.CompletedTask;
+        }
+
+        public Task RemoveAsync(Guid buttonId, CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            LastId = buttonId;
             return Task.CompletedTask;
         }
 

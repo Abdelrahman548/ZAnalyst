@@ -29,15 +29,16 @@ public class Button: Entity
         if(templateId == Guid.Empty)
             throw new ArgumentException("Template id cannot be empty.");
         ValidateName(name);
-        ValidatePressDurations(preSec, postSec);
+        if (mode == PressMode.Single)
+            ValidatePressDurations(preSec, postSec);
         Name = name.Trim();
         Color = color;
         Type = type;
         Mode = mode;
         HotKey = hotkey;
         Note = note;
-        PreSec = preSec;
-        PostSec = postSec;
+        PreSec = mode == PressMode.Single ? preSec : 0;
+        PostSec = mode == PressMode.Single ? postSec : 0;
         TemplateId = templateId;
         CreatedAt = DateTime.Now;
         UpdatedAt = DateTime.Now;
@@ -50,18 +51,20 @@ public class Button: Entity
         UpdatedAt = DateTime.Now;
     }
 
-    public void ToSinglePressMode()
+    public void ToSinglePressMode(float preSec = 0, float postSec = 0)
     {
+        ValidatePressDurations(preSec, postSec);
         Mode = PressMode.Single;
+        PreSec = preSec;
+        PostSec = postSec;
         UpdatedAt = DateTime.Now;
     }
 
-    public void ToDoublePressMode(float preSec, float postSec)
+    public void ToDoublePressMode()
     {
-        ValidatePressDurations(preSec, postSec);
         Mode = PressMode.Double;
-        PreSec = preSec;
-        PostSec = postSec;
+        PreSec = 0;
+        PostSec = 0;
         UpdatedAt = DateTime.Now;
     }
 
@@ -80,6 +83,31 @@ public class Button: Entity
     public void UpdateNote(string note)
     {
         Note = note;
+        UpdatedAt = DateTime.Now;
+    }
+
+    public void UpdateConfiguration(
+        string name,
+        Color color,
+        ButtonType type,
+        PressMode mode,
+        string? hotkey,
+        string? note,
+        float preSec,
+        float postSec)
+    {
+        ValidateName(name);
+        if (mode == PressMode.Single)
+            ValidatePressDurations(preSec, postSec);
+
+        Name = name.Trim();
+        Color = color;
+        Type = type;
+        Mode = mode;
+        HotKey = hotkey;
+        Note = note;
+        PreSec = mode == PressMode.Single ? preSec : 0;
+        PostSec = mode == PressMode.Single ? postSec : 0;
         UpdatedAt = DateTime.Now;
     }
 

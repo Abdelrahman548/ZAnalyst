@@ -16,6 +16,9 @@ public sealed class TemplateService(ITemplateRepository repository, IUnitOfWork 
         return template;
     }
 
+    public Task<IReadOnlyList<Template>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        _repository.GetAllAsync(cancellationToken);
+
     public Task<Template?> GetByIdAsync(Guid templateId, CancellationToken cancellationToken = default)
     {
         ServiceGuard.AgainstEmptyId(templateId, nameof(templateId));
