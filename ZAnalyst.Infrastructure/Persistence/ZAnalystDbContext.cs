@@ -43,6 +43,7 @@ public sealed class ZAnalystDbContext(DbContextOptions<ZAnalystDbContext> option
         modelBuilder.Entity<Match>(entity =>
         {
             entity.HasKey(match => match.Id);
+            entity.Property(match => match.Title).IsRequired();
             entity.HasOne(match => match.Template)
                 .WithMany(template => template.Matches)
                 .HasForeignKey(match => match.TemplateId)
@@ -74,7 +75,7 @@ public sealed class ZAnalystDbContext(DbContextOptions<ZAnalystDbContext> option
             entity.HasOne(domainEvent => domainEvent.Match)
                 .WithMany()
                 .HasForeignKey(domainEvent => domainEvent.MatchId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(domainEvent => domainEvent.Button)
                 .WithMany()
                 .HasForeignKey(domainEvent => domainEvent.ButtonId)
@@ -87,7 +88,7 @@ public sealed class ZAnalystDbContext(DbContextOptions<ZAnalystDbContext> option
             entity.HasOne(action => action.Match)
                 .WithMany()
                 .HasForeignKey(action => action.MatchId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(action => action.Button)
                 .WithMany()
                 .HasForeignKey(action => action.ButtonId)

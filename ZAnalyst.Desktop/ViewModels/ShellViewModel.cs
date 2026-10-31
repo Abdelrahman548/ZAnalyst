@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using ZAnalyst.Application.Interfaces;
+using ZAnalyst.Domain.Entities;
 
 namespace ZAnalyst.Desktop.ViewModels;
 
@@ -20,11 +21,16 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         IPlayerService playerService,
         IMatchService matchService,
         ITemplateService templateService,
-        IButtonService buttonService)
+        IButtonService buttonService,
+        IEventService eventService,
+        IActionService actionService)
     {
         _teamsViewModel = new TeamsViewModel(teamService, playerService);
         _templatesViewModel = new TemplatesViewModel(templateService, buttonService);
         _matchesViewModel = new MatchesViewModel(matchService, teamService, templateService);
+        var matchAnalysisViewModel = new MatchAnalysisViewModel(
+            eventService, actionService, buttonService, teamService);
+        _matchesViewModel.MatchSelected += match => _ = OpenMatchAnalysisAsync(match, matchAnalysisViewModel);
         NavigateCommand = new RelayCommand(parameter =>
         {
             if (parameter is NavigationItemViewModel item)
@@ -34,7 +40,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         NavigationItems =
         [
             CreateNavigationItem("Matches", "01", _matchesViewModel),
-            CreateNavigationItem("Match analysis", "02", new MatchAnalysisViewModel()),
+            CreateNavigationItem("Match analysis", "02", matchAnalysisViewModel),
             CreateNavigationItem("Teams & players", "03", _teamsViewModel),
             CreateNavigationItem("Templates", "04", _templatesViewModel)
         ];
@@ -86,6 +92,17 @@ public sealed class ShellViewModel : INotifyPropertyChanged
             item.IsSelected = ReferenceEquals(item, selectedItem);
 
         CurrentPage = selectedItem.Page;
+        OnPropertyChanged(nameof(NavigationItems));
+    }
+
+    private async Task OpenMatchAnalysisAsync(Match match, MatchAnalysisViewModel viewModel)
+    {
+        await viewModel.LoadMatchAsync(match);
+        var analysisNavigationItem = NavigationItems.First(item => ReferenceEquals(item.Page, viewModel));
+        foreach (var item in NavigationItems)
+            item.IsSelected = ReferenceEquals(item, analysisNavigationItem);
+
+        CurrentPage = viewModel;
         OnPropertyChanged(nameof(NavigationItems));
     }
 

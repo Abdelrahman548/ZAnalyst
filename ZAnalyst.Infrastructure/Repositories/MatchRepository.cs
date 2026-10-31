@@ -24,6 +24,17 @@ internal sealed class MatchRepository(ZAnalystDbContext context)
     public Task UpdateAsync(Guid matchId, Match match, CancellationToken cancellationToken = default) =>
         base.StageUpdateAsync(matchId, match, cancellationToken);
 
-    public Task RemoveAsync(Guid matchId, CancellationToken cancellationToken = default) =>
-        base.StageRemoveAsync(matchId, cancellationToken);
+    public async Task RemoveAsync(Guid matchId, CancellationToken cancellationToken = default)
+    {
+        var events = await Context.Events
+            .Where(domainEvent => domainEvent.MatchId == matchId)
+            .ToListAsync(cancellationToken);
+        var actions = await Context.Actions
+            .Where(action => action.MatchId == matchId)
+            .ToListAsync(cancellationToken);
+
+        Context.Events.RemoveRange(events);
+        Context.Actions.RemoveRange(actions);
+        await base.StageRemoveAsync(matchId, cancellationToken);
+    }
 }

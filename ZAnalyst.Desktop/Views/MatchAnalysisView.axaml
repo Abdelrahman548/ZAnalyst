@@ -2,97 +2,308 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:ZAnalyst.Desktop.Controls"
              xmlns:vm="using:ZAnalyst.Desktop.ViewModels"
+             xmlns:domain="using:ZAnalyst.Domain.Entities"
+             xmlns:vlc="using:LibVLCSharp.Avalonia"
              x:Class="ZAnalyst.Desktop.Views.MatchAnalysisView"
              x:DataType="vm:MatchAnalysisViewModel">
-    <Grid RowDefinitions="Auto,*" RowSpacing="20">
-        <controls:PageHeading Title="{Binding Title}" Description="{Binding Description}" />
-        <Grid Grid.Row="1" ColumnDefinitions="2.1*,*" ColumnSpacing="16">
-            <Grid RowDefinitions="*,Auto" RowSpacing="12">
-                <Border Classes="surface-card" Padding="0" MinHeight="320">
-                    <Grid Background="#0B0F14" RowDefinitions="*,Auto">
-                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
-                                    Spacing="10" MaxWidth="400">
-                            <Border Width="52" Height="52" CornerRadius="26"
-                                    Background="{DynamicResource SelectedSurfaceBrush}"
-                                    HorizontalAlignment="Center">
-                                <TextBlock Text="▶" FontSize="20"
-                                           Foreground="{DynamicResource AccentBrush}"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <TextBlock Text="Select a match to load its video"
-                                       FontSize="17" FontWeight="SemiBold" TextAlignment="Center"
+    <Grid RowDefinitions="Auto,*,Auto" RowSpacing="16">
+        <Grid ColumnDefinitions="*,Auto">
+            <controls:PageHeading Title="{Binding MatchTitle}" Description="Match analysis" />
+            <TextBlock Grid.Column="1" Text="{Binding CurrentTimeText}"
+                       FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AccentBrush}" />
+        </Grid>
+
+        <Grid Grid.Row="1" RowDefinitions="Auto,*" RowSpacing="14">
+            <Border Classes="surface-card" Padding="0" Height="300">
+                <Grid Background="#0B0F14" RowDefinitions="*,Auto">
+                    <Grid>
+                        <vlc:VideoView x:Name="VideoView" IsVisible="{Binding HasVideo}" />
+                        <StackPanel IsVisible="{Binding !HasVideo}"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Spacing="8" MaxWidth="380">
+                            <TextBlock Text="No video attached to this match"
+                                       FontSize="16" FontWeight="SemiBold" TextAlignment="Center"
                                        Foreground="{DynamicResource PrimaryTextBrush}" />
-                            <TextBlock Text="Playback, seeking, and frame-accurate tagging will live in this workspace."
+                            <TextBlock Text="Use the timeline slider to set a match time manually, then record events or actions."
                                        FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
                                        Foreground="{DynamicResource SecondaryTextBrush}" />
                         </StackPanel>
-                        <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*,Auto,Auto"
-                              ColumnSpacing="12" Margin="18,12">
-                            <Button Content="‹" IsEnabled="False" />
-                            <Button Grid.Column="1" Content="▶" IsEnabled="False" />
-                            <Slider Grid.Column="2" Minimum="0" Maximum="100" IsEnabled="False"
-                                    VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="3" Text="00:00" VerticalAlignment="Center"
+                    </Grid>
+                    <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto"
+                          ColumnSpacing="10" Margin="14,10">
+                        <Button Content="‹ 5s" Click="BackFiveSeconds_Click"
+                                IsEnabled="{Binding HasVideo}" />
+                        <Button Grid.Column="1" Content="+ 5s" Click="ForwardFiveSeconds_Click"
+                                IsEnabled="{Binding HasVideo}" />
+                        <Button Grid.Column="2" Content="{Binding PlaybackButtonText}"
+                                Command="{Binding TogglePlaybackCommand}" IsEnabled="{Binding HasVideo}" />
+                        <Slider Grid.Column="3" Minimum="0" Maximum="{Binding PlaybackDurationSeconds}"
+                                Value="{Binding PlaybackPositionSeconds, Mode=TwoWay}"
+                                IsEnabled="{Binding HasMatch}" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="4" Text="{Binding CurrentTimeText}" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                        <TextBlock Grid.Column="5" Text="{Binding DurationText}" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource MutedTextBrush}" />
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex}">
+                <TabItem Header="Events">
+                    <Grid RowDefinitions="Auto,Auto,*" RowSpacing="12" Margin="4,12,4,4">
+                        <StackPanel Spacing="7">
+                            <TextBlock Text="Record match events" FontSize="15" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryTextBrush}" />
+                            <TextBlock Text="Single press uses the button's before/after offsets. Double press marks the start and end."
+                                       FontSize="12" TextWrapping="Wrap"
                                        Foreground="{DynamicResource SecondaryTextBrush}" />
-                            <TextBlock Grid.Column="4" Text="1.0×" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock Text="{Binding PendingPressText}" IsVisible="{Binding HasPendingPress}"
+                                       FontSize="12" Foreground="{DynamicResource WarningBrush}" />
+                        </StackPanel>
+                        <ItemsControl Grid.Row="1" ItemsSource="{Binding EventButtons}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="domain:Button">
+                                    <Button Content="{Binding Name}" Margin="0,0,8,8"
+                                            Command="{Binding $parent[UserControl].((vm:MatchAnalysisViewModel)DataContext).RecordButtonCommand}"
+                                            CommandParameter="{Binding}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Grid.Row="1" Text="This template has no event buttons."
+                                   IsVisible="{Binding !HasEventButtons}" FontSize="12"
+                                   Foreground="{DynamicResource MutedTextBrush}" />
+                        <Grid Grid.Row="2">
+                            <ScrollViewer>
+                                <ItemsControl ItemsSource="{Binding EventEntries}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:MatchAnalysisViewModel+AnalysisEntryViewModel">
+                                            <Border Classes="surface-card" Padding="12" Margin="0,0,0,8">
+                                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                                    <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                            Background="Transparent" BorderThickness="0"
+                                                            Command="{Binding $parent[UserControl].((vm:MatchAnalysisViewModel)DataContext).SeekToEntryCommand}"
+                                                            CommandParameter="{Binding}">
+                                                        <StackPanel Spacing="4">
+                                                            <TextBlock Text="{Binding ButtonName}" FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource PrimaryTextBrush}" />
+                                                            <TextBlock Text="{Binding TimeRange}" FontSize="12"
+                                                                       Foreground="{DynamicResource AccentBrush}" />
+                                                            <TextBlock Text="{Binding NoteDisplay}" FontSize="11"
+                                                                       Foreground="{DynamicResource MutedTextBrush}" />
+                                                        </StackPanel>
+                                                    </Button>
+                                                    <Button Grid.Column="1" Content="Edit" VerticalAlignment="Center"
+                                                            Command="{Binding $parent[UserControl].((vm:MatchAnalysisViewModel)DataContext).EditEntryCommand}"
+                                                            CommandParameter="{Binding}" />
+                                                    <Button Grid.Column="2" Content="▶" VerticalAlignment="Center"
+                                                            Command="{Binding $parent[UserControl].((vm:MatchAnalysisViewModel)DataContext).SeekToEntryCommand}"
+                                                            CommandParameter="{Binding}" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <TextBlock Text="No events recorded yet." IsVisible="{Binding !HasEvents}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource MutedTextBrush}" />
                         </Grid>
                     </Grid>
-                </Border>
-                <Border Grid.Row="1" Classes="surface-card" Padding="16">
-                    <StackPanel Spacing="12">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Text="QUICK TAGS" FontSize="11" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource SecondaryTextBrush}" />
-                            <TextBlock Grid.Column="1" Text="Template buttons appear here"
-                                       FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
-                        </Grid>
-                        <WrapPanel ItemWidth="132" ItemHeight="42">
-                            <Button Content="Event" IsEnabled="False" Margin="0,0,8,8" />
-                            <Button Content="Action · player" IsEnabled="False" Margin="0,0,8,8" />
-                            <Button Content="Two-press tag" IsEnabled="False" Margin="0,0,8,8" />
-                        </WrapPanel>
-                    </StackPanel>
-                </Border>
-            </Grid>
-
-            <Border Grid.Column="1" Classes="surface-card" Padding="0">
-                <Grid RowDefinitions="Auto,*,Auto">
-                    <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1"
-                            Padding="18,16">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <StackPanel Spacing="3">
-                                <TextBlock Text="ANALYSIS TIMELINE" FontSize="11"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource SecondaryTextBrush}" />
-                                <TextBlock Text="Entries are ordered by video time"
-                                           FontSize="12" Foreground="{DynamicResource MutedTextBrush}" />
-                            </StackPanel>
-                            <TextBlock Grid.Column="1" Text="0 entries"
-                                       FontSize="12" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource SecondaryTextBrush}" />
-                        </Grid>
-                    </Border>
-                    <StackPanel Grid.Row="1" HorizontalAlignment="Center"
-                                VerticalAlignment="Center" Spacing="8" MaxWidth="260">
-                        <TextBlock Text="Nothing recorded yet" FontSize="15"
-                                   FontWeight="SemiBold" TextAlignment="Center"
-                                   Foreground="{DynamicResource PrimaryTextBrush}" />
-                        <TextBlock Text="Recorded events and player actions will appear here. Select an entry later to jump back to its moment."
-                                   FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
-                                   Foreground="{DynamicResource MutedTextBrush}" />
-                    </StackPanel>
-                    <Border Grid.Row="2" Background="{DynamicResource AppBackgroundBrush}"
-                            CornerRadius="0,0,12,12" Padding="16">
+                </TabItem>
+                <TabItem Header="Actions">
+                    <Grid RowDefinitions="Auto,Auto,*,Auto,*" RowSpacing="10" Margin="4,12,4,4">
                         <StackPanel Spacing="8">
-                            <TextBlock Text="PLAYER" FontSize="10" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource SecondaryTextBrush}" />
-                            <TextBlock Text="Choose a player when recording an action"
-                                       FontSize="12" TextWrapping="Wrap"
-                                       Foreground="{DynamicResource MutedTextBrush}" />
+                            <TextBlock Text="Record player actions" FontSize="15" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryTextBrush}" />
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                <TextBlock Text="Player" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource SecondaryTextBrush}" />
+                                <ComboBox Grid.Column="1" ItemsSource="{Binding Players}"
+                                          SelectedItem="{Binding SelectedPlayer}" PlaceholderText="Choose a player"
+                                          IsEnabled="{Binding HasPlayers}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="domain:Player">
+                                            <TextBlock Text="{Binding Name}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </Grid>
+                            <TextBlock Text="No players are assigned to this team."
+                                       IsVisible="{Binding !HasPlayers}" FontSize="11"
+                                       Foreground="{DynamicResource WarningBrush}" />
+                            <TextBlock Text="{Binding PendingPressText}" IsVisible="{Binding HasPendingPress}"
+                                       FontSize="12" Foreground="{DynamicResource WarningBrush}" />
                         </StackPanel>
-                    </Border>
-                </Grid>
+                        <ItemsControl Grid.Row="1" ItemsSource="{Binding ActionButtons}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="domain:Button">
+                                    <Button Content="{Binding Name}" Margin="0,0,8,8"
+                                            IsEnabled="{Binding $parent[UserControl].((vm:MatchAnalysisViewModel)DataContext).HasPlayers}"
+                                            Command="{Binding $parent[UserControl].((vm:MatchAnalysisViewModel)DataContext).RecordButtonCommand}"
+                                            CommandParameter="{Binding}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Grid.Row="1" Text="This template has no action buttons."
+                                   IsVisible="{Binding !HasActionButtons}" FontSize="12"
+                                   Foreground="{DynamicResource MutedTextBrush}" />
+                        <Border Grid.Row="2" Classes="surface-card" Padding="10">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="EVENT NAVIGATION" FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource SecondaryTextBrush}" />
+                                <ScrollViewer MaxHeight="90">
+                                    <Grid>
+                                        <ItemsControl ItemsSource="{Binding EventEntries}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:MatchAnalysisViewModel+AnalysisEntryViewModel">
+                                                    <Button Content="{Binding NavigationLabel}" Margin="0,0,6,6"
+                                                            Command="{Binding $parent[UserControl].((vm:MatchAnalysisViewModel)DataContext).SeekToEntryCommand}"
+                                                            CommandParameter="{Binding}" />
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <TextBlock Text="No events recorded." IsVisible="{Binding !HasEvents}"
+                                                   Foreground="{DynamicResource MutedTextBrush}" />
+                                    </Grid>
+                                </ScrollViewer>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Grid.Row="3" Text="PLAYER ACTION TIMELINE" FontSize="10"
+                                   FontWeight="SemiBold" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                        <Grid Grid.Row="4">
+                            <ScrollViewer>
+                                <ItemsControl ItemsSource="{Binding ActionEntries}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:MatchAnalysisViewModel+AnalysisEntryViewModel">
+                                            <Border Classes="surface-card" Padding="12" Margin="0,0,0,8">
+                                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                                    <Button HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                                            Background="Transparent" BorderThickness="0"
+                                                            Command="{Binding $parent[UserControl].((vm:MatchAnalysisViewModel)DataContext).SeekToEntryCommand}"
+                                                            CommandParameter="{Binding}">
+                                                        <StackPanel Spacing="4">
+                                                            <TextBlock Text="{Binding ButtonName}" FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource PrimaryTextBrush}" />
+                                                            <TextBlock Text="{Binding PlayerLabel}" FontSize="12"
+                                                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                                                            <TextBlock Text="{Binding TimeRange}" FontSize="11"
+                                                                       Foreground="{DynamicResource AccentBrush}" />
+                                                            <TextBlock Text="{Binding Rate}" FontSize="10"
+                                                                       Foreground="{DynamicResource WarningBrush}" />
+                                                            <TextBlock Text="{Binding NoteDisplay}" FontSize="11"
+                                                                       Foreground="{DynamicResource MutedTextBrush}" />
+                                                        </StackPanel>
+                                                    </Button>
+                                                    <Button Grid.Column="1" Content="Edit" VerticalAlignment="Center"
+                                                            Command="{Binding $parent[UserControl].((vm:MatchAnalysisViewModel)DataContext).EditEntryCommand}"
+                                                            CommandParameter="{Binding}" />
+                                                    <Button Grid.Column="2" Content="▶" VerticalAlignment="Center"
+                                                            Command="{Binding $parent[UserControl].((vm:MatchAnalysisViewModel)DataContext).SeekToEntryCommand}"
+                                                            CommandParameter="{Binding}" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <TextBlock Text="No actions recorded yet." IsVisible="{Binding !HasActions}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource MutedTextBrush}" />
+                        </Grid>
+                    </Grid>
+                </TabItem>
+            </TabControl>
+        </Grid>
+
+        <Border Grid.Row="2" IsVisible="{Binding HasError}" Background="#3A2528"
+                CornerRadius="7" Padding="10">
+            <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap"
+                       Foreground="{DynamicResource ErrorBrush}" />
+        </Border>
+
+        <Grid Grid.RowSpan="3" IsVisible="{Binding IsAnyDialogOpen}" Background="#B8000000">
+            <Border Width="520" MaxHeight="720" Padding="26" Classes="surface-card"
+                    IsVisible="{Binding IsEditDialogOpen}"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Spacing="16">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Edit analysis entry" FontSize="21" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource PrimaryTextBrush}" />
+                        <TextBlock Text="{Binding EditingEntry.ButtonName}" FontSize="13"
+                                   Foreground="{DynamicResource AccentBrush}" />
+                    </StackPanel>
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="START (HH:MM:SS.fff)" FontSize="10"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBox Text="{Binding EditStartTime}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="6">
+                            <TextBlock Text="END (HH:MM:SS.fff)" FontSize="10"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBox Text="{Binding EditEndTime}" />
+                        </StackPanel>
+                    </Grid>
+                    <StackPanel Spacing="6" IsVisible="{Binding EditingEntry.IsAction}">
+                        <TextBlock Text="PLAYER" FontSize="10"
+                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                        <ComboBox ItemsSource="{Binding Players}" SelectedItem="{Binding EditPlayer}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="domain:Player">
+                                    <TextBlock Text="{Binding Name}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBlock Text="RATE" FontSize="10"
+                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                        <ComboBox ItemsSource="{Binding ActionRates}" SelectedItem="{Binding EditRate}" />
+                    </StackPanel>
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="NOTE (OPTIONAL)" FontSize="10"
+                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                        <TextBox Text="{Binding EditNote}" AcceptsReturn="True" MinHeight="76"
+                                 TextWrapping="Wrap" PlaceholderText="Add a note about this moment" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"
+                               TextWrapping="Wrap" Foreground="{DynamicResource ErrorBrush}" />
+                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
+                        <Button Content="Delete" Foreground="{DynamicResource ErrorBrush}"
+                                Command="{Binding RequestDeleteEntryCommand}" />
+                        <Button Grid.Column="2" Content="Discard"
+                                Command="{Binding DiscardEditCommand}" IsEnabled="{Binding IsNotBusy}" />
+                        <Button Grid.Column="3" Classes="primary-button" Content="Save"
+                                Command="{Binding SaveEntryCommand}" IsEnabled="{Binding IsNotBusy}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+            <Border Width="420" Padding="24" Classes="surface-card"
+                    IsVisible="{Binding IsDeleteConfirmationOpen}"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="Delete this entry?" FontSize="19" FontWeight="SemiBold"
+                               Foreground="{DynamicResource PrimaryTextBrush}" />
+                    <TextBlock Text="This cannot be undone." FontSize="13"
+                               Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <TextBlock Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"
+                               TextWrapping="Wrap" Foreground="{DynamicResource ErrorBrush}" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                        <Button Content="Cancel" Command="{Binding CancelDeleteEntryCommand}"
+                                IsEnabled="{Binding IsNotBusy}" />
+                        <Button Content="Delete" Foreground="{DynamicResource ErrorBrush}"
+                                Command="{Binding ConfirmDeleteEntryCommand}" IsEnabled="{Binding IsNotBusy}" />
+                    </StackPanel>
+                </StackPanel>
             </Border>
         </Grid>
     </Grid>

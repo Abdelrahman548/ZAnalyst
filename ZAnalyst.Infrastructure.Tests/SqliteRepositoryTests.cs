@@ -114,12 +114,54 @@ public sealed class SqliteRepositoryTests
         await using (var context = new ZAnalystDbContext(options))
         {
             var service = new MatchService(new MatchRepository(context), context);
-            await service.CreateAsync(new Match(team.Id, template.Id));
+            await service.CreateAsync(new Match(team.Id, template.Id, "Home opener"));
 
             var match = Assert.Single(await service.GetAllAsync());
+            Assert.Equal("Home opener", match.Title);
             Assert.Equal(team.Name, match.Team?.Name);
             Assert.Equal(template.Name, match.Template?.Name);
         }
+    }
+
+    [Fact]
+    public async Task MatchServiceDeletesMatchAndItsRecordedEventsAndActions()
+    {
+        await using var connection = await OpenDatabaseAsync();
+        var options = CreateOptions(connection);
+        var team = new Team("Home");
+        var template = new Template("Standard");
+        var player = new Player("Player", 7, team.Id);
+        var match = new Match(team.Id, template.Id, "Cup final");
+        var eventButton = new Button(
+            template.Id, "Goal", System.Drawing.Color.Green, ButtonType.Event, PressMode.Single);
+        var actionButton = new Button(
+            template.Id, "Pass", System.Drawing.Color.Blue, ButtonType.Action, PressMode.Single);
+        var time = DateTime.UtcNow;
+        var recordedEvent = new ZAnalyst.Domain.Entities.Event(
+            match.Id, eventButton.Id, time, time, null);
+        var recordedAction = new ActionEntity(
+            match.Id, actionButton.Id, player.Id, ActionRate.Good, time, time, null);
+
+        await using (var seedContext = new ZAnalystDbContext(options))
+        {
+            seedContext.AddRange(
+                team, template, player, match, eventButton, actionButton, recordedEvent, recordedAction);
+            await seedContext.SaveChangesAsync();
+        }
+
+        await using (var context = new ZAnalystDbContext(options))
+        {
+            var service = new MatchService(new MatchRepository(context), context);
+            await service.RemoveAsync(match.Id);
+        }
+
+        await using var verifyContext = new ZAnalystDbContext(options);
+        Assert.False(await verifyContext.Matches.AnyAsync(item => item.Id == match.Id));
+        Assert.False(await verifyContext.Events.AnyAsync(item => item.MatchId == match.Id));
+        Assert.False(await verifyContext.Actions.AnyAsync(item => item.MatchId == match.Id));
+        Assert.True(await verifyContext.Players.AnyAsync(item => item.Id == player.Id));
+        Assert.True(await verifyContext.Buttons.AnyAsync(item => item.Id == eventButton.Id));
+        Assert.True(await verifyContext.Buttons.AnyAsync(item => item.Id == actionButton.Id));
     }
 
     [Fact]

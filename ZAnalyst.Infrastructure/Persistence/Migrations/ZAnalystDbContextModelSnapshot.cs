@@ -155,6 +155,10 @@ namespace ZAnalyst.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("TeamId")
                         .HasColumnType("TEXT");
 
@@ -243,7 +247,7 @@ namespace ZAnalyst.Infrastructure.Persistence.Migrations
                     b.HasOne("ZAnalyst.Domain.Entities.Match", "Match")
                         .WithMany()
                         .HasForeignKey("MatchId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("ZAnalyst.Domain.Entities.Player", "Player")
@@ -279,7 +283,7 @@ namespace ZAnalyst.Infrastructure.Persistence.Migrations
                     b.HasOne("ZAnalyst.Domain.Entities.Match", "Match")
                         .WithMany()
                         .HasForeignKey("MatchId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Button");

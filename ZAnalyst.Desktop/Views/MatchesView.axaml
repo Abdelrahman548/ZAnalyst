@@ -66,7 +66,7 @@
                                             Classes="surface-card" Padding="16">
                                         <StackPanel Spacing="12">
                                             <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
-                                                <TextBlock Text="{Binding Team.Name}" FontSize="16"
+                                                <TextBlock Text="{Binding Title}" FontSize="16"
                                                            FontWeight="SemiBold"
                                                            Foreground="{DynamicResource PrimaryTextBrush}" />
                                                 <Border Grid.Column="1"
@@ -84,6 +84,8 @@
                                                               Data="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
                                                 </Button>
                                             </Grid>
+                                            <TextBlock Text="{Binding Team.Name}" FontSize="12"
+                                                       Foreground="{DynamicResource SecondaryTextBrush}" />
                                             <StackPanel Spacing="4">
                                                 <TextBlock Text="ANALYSIS TEMPLATE" FontSize="9"
                                                            FontWeight="SemiBold"
@@ -106,6 +108,10 @@
                                                            ToolTip.Tip="{Binding VideoPath}"
                                                            Foreground="{DynamicResource MutedTextBrush}" />
                                             </Border>
+                                            <Button Classes="primary-button" Content="Open analysis"
+                                                    HorizontalAlignment="Stretch"
+                                                    Command="{Binding $parent[UserControl].((vm:MatchesViewModel)DataContext).OpenMatchCommand}"
+                                                    CommandParameter="{Binding}" />
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>
@@ -152,10 +158,20 @@
                     <StackPanel Spacing="7">
                         <TextBlock Text="Set up a match" FontSize="24" FontWeight="SemiBold"
                                    Foreground="{DynamicResource PrimaryTextBrush}" />
-                        <TextBlock Text="Choose which team you're analyzing and the template that defines its event and action buttons."
+                        <TextBlock Text="Give this match a title, then choose its team and the template for its event and action buttons."
                                    FontSize="13" TextWrapping="Wrap"
                                    Foreground="{DynamicResource SecondaryTextBrush}" />
                     </StackPanel>
+                    <Border Background="{DynamicResource AppBackgroundBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                            CornerRadius="10" Padding="18">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="MATCH TITLE" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AccentBrush}" />
+                            <TextBox Text="{Binding MatchTitle}" IsEnabled="{Binding IsNotBusy}"
+                                     PlaceholderText="e.g. Home vs Away — League match" />
+                        </StackPanel>
+                    </Border>
                     <Border Background="{DynamicResource AppBackgroundBrush}"
                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
                             CornerRadius="10" Padding="18">
@@ -252,7 +268,7 @@
                                    Foreground="{DynamicResource PrimaryTextBrush}" />
                         <TextBlock Text="{Binding PendingDeleteMatch.Team.Name}" FontSize="14"
                                    Foreground="{DynamicResource AccentBrush}" />
-                        <TextBlock Text="This action cannot be undone. Matches with recorded events or actions cannot be deleted."
+                        <TextBlock Text="This permanently deletes the match and all events and actions recorded for it. This cannot be undone."
                                    FontSize="12" TextWrapping="Wrap"
                                    Foreground="{DynamicResource SecondaryTextBrush}" />
                     </StackPanel>

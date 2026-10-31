@@ -14,6 +14,7 @@ public sealed class MatchesViewModel : WorkspacePageViewModel, INotifyPropertyCh
     private readonly ITemplateService _templateService;
     private Team? _selectedTeam;
     private Template? _selectedTemplate;
+    private string _matchTitle = string.Empty;
     private string? _videoPath;
     private string? _errorMessage;
     private bool _isBusy;
@@ -31,6 +32,11 @@ public sealed class MatchesViewModel : WorkspacePageViewModel, INotifyPropertyCh
         _teamService = teamService ?? throw new ArgumentNullException(nameof(teamService));
         _templateService = templateService ?? throw new ArgumentNullException(nameof(templateService));
 
+        OpenMatchCommand = new RelayCommand(parameter =>
+        {
+            if (parameter is Match match)
+                MatchSelected?.Invoke(match);
+        }, parameter => !IsBusy && parameter is Match);
         OpenCreateDialogCommand = new RelayCommand(_ => OpenCreateDialog(), _ => !IsBusy);
         CreateMatchCommand = new AsyncCommand(CreateMatchAsync, CanCreateMatch);
         DiscardCreateDialogCommand = new RelayCommand(_ => CloseCreateDialog(), _ => !IsBusy);
@@ -42,12 +48,14 @@ public sealed class MatchesViewModel : WorkspacePageViewModel, INotifyPropertyCh
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+    public event Action<Match>? MatchSelected;
 
     public ObservableCollection<Match> Matches { get; } = [];
     public ObservableCollection<Team> Teams { get; } = [];
     public ObservableCollection<Template> Templates { get; } = [];
 
     public ICommand OpenCreateDialogCommand { get; }
+    public ICommand OpenMatchCommand { get; }
     public ICommand CreateMatchCommand { get; }
     public ICommand DiscardCreateDialogCommand { get; }
     public ICommand RequestDeleteMatchCommand { get; }
@@ -72,6 +80,16 @@ public sealed class MatchesViewModel : WorkspacePageViewModel, INotifyPropertyCh
         set
         {
             if (SetProperty(ref _selectedTemplate, value))
+                NotifyCommandStates();
+        }
+    }
+
+    public string MatchTitle
+    {
+        get => _matchTitle;
+        set
+        {
+            if (SetProperty(ref _matchTitle, value))
                 NotifyCommandStates();
         }
     }
@@ -227,6 +245,7 @@ public sealed class MatchesViewModel : WorkspacePageViewModel, INotifyPropertyCh
 
     private void OpenCreateDialog()
     {
+        MatchTitle = string.Empty;
         VideoPath = null;
         ClearError();
         IsCreateDialogOpen = true;
@@ -235,6 +254,7 @@ public sealed class MatchesViewModel : WorkspacePageViewModel, INotifyPropertyCh
     private void CloseCreateDialog()
     {
         IsCreateDialogOpen = false;
+        MatchTitle = string.Empty;
         VideoPath = null;
         ClearError();
     }
@@ -287,14 +307,15 @@ public sealed class MatchesViewModel : WorkspacePageViewModel, INotifyPropertyCh
     {
         var team = SelectedTeam;
         var template = SelectedTemplate;
-        if (team is null || template is null)
+        if (team is null || template is null || string.IsNullOrWhiteSpace(MatchTitle))
             return;
 
         IsBusy = true;
         ClearError();
         try
         {
-            await _matchService.CreateAsync(new Match(team.Id, template.Id, VideoPath));
+            await _matchService.CreateAsync(
+                new Match(team.Id, template.Id, MatchTitle, videoPath: VideoPath));
             await LoadMatchesCoreAsync();
             CloseCreateDialog();
         }
@@ -309,7 +330,8 @@ public sealed class MatchesViewModel : WorkspacePageViewModel, INotifyPropertyCh
     }
 
     private bool CanCreateMatch() =>
-        !IsBusy && IsCreateDialogOpen && SelectedTeam is not null && SelectedTemplate is not null;
+        !IsBusy && IsCreateDialogOpen && SelectedTeam is not null &&
+        SelectedTemplate is not null && !string.IsNullOrWhiteSpace(MatchTitle);
 
     private void NotifyLookupDataChanged()
     {
@@ -325,6 +347,7 @@ public sealed class MatchesViewModel : WorkspacePageViewModel, INotifyPropertyCh
         foreach (var command in new ICommand[]
         {
             OpenCreateDialogCommand, CreateMatchCommand, DiscardCreateDialogCommand,
+            OpenMatchCommand,
             RequestDeleteMatchCommand, ConfirmDeleteMatchCommand, CancelDeleteMatchCommand,
             RefreshCommand, ClearVideoCommand
         })

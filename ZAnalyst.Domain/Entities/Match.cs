@@ -2,6 +2,7 @@ namespace ZAnalyst.Domain.Entities;
 
 public class Match: Entity
 {
+    public string Title { get; private set; } = string.Empty;
     public Guid TeamId { get; private set; }
     public Guid TemplateId { get; private set; }
     public string? VideoSha256 { get; private set; }
@@ -15,13 +16,21 @@ public class Match: Entity
     {
     }
 
-    public Match(Guid teamId, Guid templateId, string? videoPath = null, string? videoSha256 = null)
+    public Match(
+        Guid teamId,
+        Guid templateId,
+        string title = "Match",
+        string? videoPath = null,
+        string? videoSha256 = null)
     {
         if (teamId == Guid.Empty)
             throw new ArgumentException("Team id cannot be empty.", nameof(teamId));
         if (templateId == Guid.Empty)
             throw new ArgumentException("Template id cannot be empty.", nameof(templateId));
+        if (string.IsNullOrWhiteSpace(title))
+            throw new ArgumentException("Title cannot be null or whitespace.", nameof(title));
 
+        Title = title.Trim();
         TeamId = teamId;
         TemplateId = templateId;
         VideoPath = videoPath;
