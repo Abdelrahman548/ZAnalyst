@@ -7,55 +7,14 @@
 
     <Application.Styles>
         <FluentTheme />
-        <Style Selector="Window">
-            <Setter Property="Background" Value="{DynamicResource AppBackgroundBrush}" />
-        </Style>
-        <Style Selector="Border.surface-card">
-            <Setter Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="12" />
-            <Setter Property="Padding" Value="20" />
-        </Style>
-        <Style Selector="Button.nav-button">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="Padding" Value="12,10" />
-            <Setter Property="CornerRadius" Value="8" />
-            <Setter Property="BorderThickness" Value="0" />
-        </Style>
-        <Style Selector="Button.nav-button:pointerover">
-            <Setter Property="Background" Value="{DynamicResource HoverSurfaceBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
-        </Style>
-        <Style Selector="Button.nav-button.selected">
-            <Setter Property="Background" Value="{DynamicResource SelectedSurfaceBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
-        </Style>
-        <Style Selector="Button.primary-button">
-            <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource AppBackgroundBrush}" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Padding" Value="16,10" />
-            <Setter Property="CornerRadius" Value="8" />
-        </Style>
+        <StyleInclude Source="avares://ZAnalyst.Desktop/Styles/Controls.axaml" />
     </Application.Styles>
 
     <Application.Resources>
         <ResourceDictionary>
-            <SolidColorBrush x:Key="AppBackgroundBrush" Color="#10141B" />
-            <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#171D26" />
-            <SolidColorBrush x:Key="CardBackgroundBrush" Color="#202833" />
-            <SolidColorBrush x:Key="HoverSurfaceBrush" Color="#26313D" />
-            <SolidColorBrush x:Key="SelectedSurfaceBrush" Color="#203A3B" />
-            <SolidColorBrush x:Key="PrimaryTextBrush" Color="#E8EDF3" />
-            <SolidColorBrush x:Key="SecondaryTextBrush" Color="#A2ADBA" />
-            <SolidColorBrush x:Key="MutedTextBrush" Color="#748191" />
-            <SolidColorBrush x:Key="BorderBrush" Color="#303B48" />
-            <SolidColorBrush x:Key="AccentBrush" Color="#55B7A8" />
-            <SolidColorBrush x:Key="WarningBrush" Color="#E6B65C" />
-            <SolidColorBrush x:Key="ErrorBrush" Color="#E17878" />
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://ZAnalyst.Desktop/Resources/Colors.axaml" />
+            </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>
 
