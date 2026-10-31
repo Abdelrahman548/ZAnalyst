@@ -87,36 +87,8 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Column="1" RowDefinitions="76,*">
-            <Border Background="{DynamicResource AppBackgroundBrush}"
-                    BorderBrush="{DynamicResource BorderBrush}"
-                    BorderThickness="0,0,0,1"
-                    Padding="28,0">
-                <Grid ColumnDefinitions="*,Auto">
-                    <StackPanel VerticalAlignment="Center" Spacing="3">
-                        <TextBlock Text="{Binding CurrentTitle}" FontSize="13"
-                                   FontWeight="SemiBold"
-                                   Foreground="{DynamicResource PrimaryTextBrush}" />
-                        <TextBlock Text="{Binding CurrentDescription}" FontSize="11"
-                                   Foreground="{DynamicResource SecondaryTextBrush}" />
-                    </StackPanel>
-                    <Border Grid.Column="1" Background="{DynamicResource CardBackgroundBrush}"
-                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
-                            CornerRadius="16" Padding="11,6"
-                            VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal" Spacing="7">
-                            <Ellipse Width="6" Height="6" Fill="{DynamicResource WarningBrush}"
-                                     VerticalAlignment="Center" />
-                            <TextBlock Text="PROTOTYPE" FontSize="9" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource SecondaryTextBrush}" />
-                        </StackPanel>
-                    </Border>
-                </Grid>
-            </Border>
-
-            <ContentControl Grid.Row="1"
-                            Content="{Binding CurrentPage}"
-                            Margin="28,24" />
-        </Grid>
+        <ContentControl Grid.Column="1"
+                        Content="{Binding CurrentPage}"
+                        Margin="28,24" />
     </Grid>
 </Window>
