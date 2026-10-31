@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using Avalonia.Media;
 using ZAnalyst.Application.Interfaces;
 using ZAnalyst.Domain.Entities;
 using ZAnalyst.Domain.Enums;
@@ -13,6 +14,7 @@ namespace ZAnalyst.Desktop.ViewModels;
 public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyPropertyChanged
 {
     public const double ManualTimelineDurationSeconds = 10800;
+    public const double TimelineTrackWidth = 640;
 
     private readonly IEventService _eventService;
     private readonly IActionService _actionService;
@@ -35,7 +37,9 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
     private Player? _editPlayer;
     private ActionRate _editRate = ActionRate.Natural;
     private bool _isEditDialogOpen;
-    private bool _isDeleteConfirmationOpen;
+    private bool _isNoteDialogOpen;
+    private AnalysisEntryViewModel? _noteEntry;
+    private string _noteText = string.Empty;
 
     public MatchAnalysisViewModel(
         IEventService eventService,
@@ -54,11 +58,8 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
             parameter => !IsBusy && parameter is AnalysisEntryViewModel);
         SaveEntryCommand = new AsyncCommand(SaveEntryAsync, () => !IsBusy && IsEditDialogOpen);
         DiscardEditCommand = new RelayCommand(_ => CloseEditDialog(), _ => !IsBusy);
-        RequestDeleteEntryCommand = new RelayCommand(_ => IsDeleteConfirmationOpen = true,
-            _ => !IsBusy && EditingEntry is not null);
-        ConfirmDeleteEntryCommand = new AsyncCommand(DeleteEntryAsync,
-            () => !IsBusy && IsDeleteConfirmationOpen && EditingEntry is not null);
-        CancelDeleteEntryCommand = new RelayCommand(_ => IsDeleteConfirmationOpen = false, _ => !IsBusy);
+        DeleteEntryCommand = new AsyncCommand(DeleteEntryAsync,
+            parameter => !IsBusy && parameter is AnalysisEntryViewModel);
         SeekToEntryCommand = new RelayCommand(parameter =>
         {
             if (parameter is AnalysisEntryViewModel entry)
@@ -66,6 +67,113 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
         }, parameter => parameter is AnalysisEntryViewModel);
         TogglePlaybackCommand = new RelayCommand(_ => TogglePlaybackRequested?.Invoke(), _ => HasVideo);
         BackCommand = new RelayCommand(_ => BackRequested?.Invoke(), _ => !IsBusy);
+        SelectPlayerCommand = new RelayCommand(parameter =>
+        {
+            if (parameter is PlayerChoiceViewModel choice)
+                SelectedPlayer = choice.Player;
+        }, parameter => parameter is PlayerChoiceViewModel);
+        SelectEventsTabCommand = new RelayCommand(_ => SelectedTabIndex = 0, _ => !IsBusy);
+        SelectActionsTabCommand = new RelayCommand(_ => SelectedTabIndex = 1, _ => !IsBusy);
+        SetActionRateCommand = new AsyncCommand(SetActionRateAsync, parameter => !IsBusy && parameter is ActionRateOptionViewModel);
+        OpenNoteCommand = new RelayCommand(parameter => OpenNoteDialog(parameter as AnalysisEntryViewModel),
+            parameter => !IsBusy && parameter is AnalysisEntryViewModel { IsAction: true });
+        SaveNoteCommand = new AsyncCommand(SaveNoteAsync, () => !IsBusy && IsNoteDialogOpen);
+        DiscardNoteCommand = new RelayCommand(_ => CloseNoteDialog(), _ => !IsBusy);
+    }
+
+    private void OpenNoteDialog(AnalysisEntryViewModel? entry)
+    {
+        if (entry?.Action is null)
+            return;
+
+        NoteEntry = entry;
+        NoteText = entry.Note ?? string.Empty;
+        ClearError();
+        IsNoteDialogOpen = true;
+    }
+
+    private async Task SaveNoteAsync()
+    {
+        var entry = NoteEntry;
+        if (entry?.Action is null)
+            return;
+
+        var previousNote = entry.Note ?? string.Empty;
+        IsBusy = true;
+        ClearError();
+        try
+        {
+            entry.Action.UpdateNote(NoteText);
+            await _actionService.UpdateAsync(entry.Action.Id, entry.Action);
+            entry.SetNote(NoteText);
+            CloseNoteDialog();
+        }
+        catch (Exception exception)
+        {
+            entry.Action.UpdateNote(previousNote);
+            ErrorMessage = $"Could not save note: {exception.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private async Task SetActionRateAsync(object? parameter)
+    {
+        if (parameter is not ActionRateOptionViewModel option || option.Entry.Action is null)
+            return;
+
+        var previousRate = option.Entry.Rate;
+        IsBusy = true;
+        ClearError();
+        try
+        {
+            option.Entry.Action.UpdateRate(option.Rate);
+            await _actionService.UpdateAsync(option.Entry.Action.Id, option.Entry.Action);
+            option.Entry.SetRate(option.Rate);
+        }
+        catch (Exception exception)
+        {
+            option.Entry.Action.UpdateRate(previousRate);
+            ErrorMessage = $"Could not update action rate: {exception.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void CloseNoteDialog()
+    {
+        IsNoteDialogOpen = false;
+        NoteEntry = null;
+        NoteText = string.Empty;
+        ClearError();
+    }
+
+    public bool TryRecordHotkey(string hotkey)
+    {
+        if (IsBusy || !HasMatch || IsAnyDialogOpen || string.IsNullOrWhiteSpace(hotkey))
+            return false;
+
+        var normalizedHotkey = NormalizeHotkey(hotkey);
+        var sourceButtons = IsEventsTab ? EventButtons : ActionButtons;
+        var matchingButtons = sourceButtons
+            .Where(button => !string.IsNullOrWhiteSpace(button.HotKey))
+            .Where(button => NormalizeHotkey(button.HotKey!) == normalizedHotkey)
+            .ToArray();
+
+        if (matchingButtons.Length == 0)
+            return false;
+        if (matchingButtons.Length > 1)
+        {
+            ErrorMessage = $"The hotkey '{hotkey}' is assigned to more than one button in this template.";
+            return true;
+        }
+
+        RecordButtonCommand.Execute(matchingButtons[0]);
+        return true;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -77,19 +185,26 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
     public ObservableCollection<Button> ActionButtons { get; } = [];
     public ObservableCollection<AnalysisEntryViewModel> EventEntries { get; } = [];
     public ObservableCollection<AnalysisEntryViewModel> ActionEntries { get; } = [];
+    public ObservableCollection<EventTimelineLaneViewModel> EventTimelineLanes { get; } = [];
     public ObservableCollection<Player> Players { get; } = [];
+    public ObservableCollection<PlayerChoiceViewModel> PlayerChoices { get; } = [];
     public IReadOnlyList<ActionRate> ActionRates { get; } = Enum.GetValues<ActionRate>();
 
     public ICommand RecordButtonCommand { get; }
     public ICommand EditEntryCommand { get; }
     public ICommand SaveEntryCommand { get; }
     public ICommand DiscardEditCommand { get; }
-    public ICommand RequestDeleteEntryCommand { get; }
-    public ICommand ConfirmDeleteEntryCommand { get; }
-    public ICommand CancelDeleteEntryCommand { get; }
+    public ICommand DeleteEntryCommand { get; }
     public ICommand SeekToEntryCommand { get; }
     public ICommand TogglePlaybackCommand { get; }
     public ICommand BackCommand { get; }
+    public ICommand SelectPlayerCommand { get; }
+    public ICommand SelectEventsTabCommand { get; }
+    public ICommand SelectActionsTabCommand { get; }
+    public ICommand SetActionRateCommand { get; }
+    public ICommand OpenNoteCommand { get; }
+    public ICommand SaveNoteCommand { get; }
+    public ICommand DiscardNoteCommand { get; }
 
     public Match? SelectedMatch
     {
@@ -110,7 +225,15 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
     public Player? SelectedPlayer
     {
         get => _selectedPlayer;
-        set => SetProperty(ref _selectedPlayer, value);
+        set
+        {
+            if (SetProperty(ref _selectedPlayer, value))
+            {
+                OnPropertyChanged(nameof(SelectedPlayerLabel));
+                foreach (var choice in PlayerChoices)
+                    choice.IsSelected = choice.Player.Id == value?.Id;
+            }
+        }
     }
 
     public AnalysisEntryViewModel? EditingEntry
@@ -161,25 +284,40 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
             if (SetProperty(ref _isEditDialogOpen, value))
             {
                 OnPropertyChanged(nameof(IsAnyDialogOpen));
+                OnPropertyChanged(nameof(IsVideoVisible));
                 NotifyCommands();
             }
         }
     }
 
-    public bool IsDeleteConfirmationOpen
+    public bool IsNoteDialogOpen
     {
-        get => _isDeleteConfirmationOpen;
+        get => _isNoteDialogOpen;
         private set
         {
-            if (SetProperty(ref _isDeleteConfirmationOpen, value))
+            if (SetProperty(ref _isNoteDialogOpen, value))
             {
                 OnPropertyChanged(nameof(IsAnyDialogOpen));
+                OnPropertyChanged(nameof(IsVideoVisible));
                 NotifyCommands();
             }
         }
     }
 
-    public bool IsAnyDialogOpen => IsEditDialogOpen || IsDeleteConfirmationOpen;
+    public AnalysisEntryViewModel? NoteEntry
+    {
+        get => _noteEntry;
+        private set => SetProperty(ref _noteEntry, value);
+    }
+
+    public string NoteText
+    {
+        get => _noteText;
+        set => SetProperty(ref _noteText, value);
+    }
+
+    public bool IsAnyDialogOpen => IsEditDialogOpen || IsNoteDialogOpen;
+    public bool IsVideoVisible => HasVideo && !IsAnyDialogOpen;
     public bool HasMatch => SelectedMatch is not null;
     public string MatchTitle => SelectedMatch?.Title ?? "Select a match";
     public string? VideoPath => SelectedMatch?.VideoPath;
@@ -191,7 +329,13 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
     public bool HasActionButtons => ActionButtons.Count > 0;
     public bool HasPlayers => Players.Count > 0;
     public bool HasPendingPress => _pendingDoublePressButton is not null;
+    public string SelectedPlayerLabel => SelectedPlayer is null
+        ? "No player selected"
+        : $"#{SelectedPlayer.Number} {SelectedPlayer.Name}";
     public bool IsActionTab => SelectedTabIndex == 1;
+    public bool IsEventsTab => SelectedTabIndex == 0;
+    public string PendingPressButtonName => _pendingDoublePressButton?.Name ?? string.Empty;
+    public bool HasPendingDoublePress => HasPendingPress;
     public bool IsNotBusy => !IsBusy;
     public string CurrentTimeText => FormatClock(PlaybackPositionSeconds);
     public string DurationText => FormatClock(PlaybackDurationSeconds);
@@ -199,6 +343,9 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
     public string PendingPressText => _pendingDoublePressButton is null
         ? string.Empty
         : $"First press recorded for {_pendingDoublePressButton.Name}. Press it again to set the end.";
+
+    public void SkipPlayback(double seconds) =>
+        PlaybackPositionSeconds = Math.Max(0, PlaybackPositionSeconds + seconds);
     public double PlaybackPositionSeconds
     {
         get => _playbackPositionSeconds;
@@ -219,7 +366,10 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
         private set
         {
             if (SetProperty(ref _playbackDurationSeconds, value))
+            {
                 OnPropertyChanged(nameof(DurationText));
+                RefreshTimelineLanes();
+            }
         }
     }
 
@@ -229,7 +379,12 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
         set
         {
             if (SetProperty(ref _selectedTabIndex, value))
+            {
+                ClearPendingPress();
                 OnPropertyChanged(nameof(IsActionTab));
+                OnPropertyChanged(nameof(IsEventsTab));
+                NotifyCommands();
+            }
         }
     }
 
@@ -284,6 +439,7 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
             EventButtons.Clear();
             ActionButtons.Clear();
             Players.Clear();
+            PlayerChoices.Clear();
 
             var buttons = await _buttonService.GetTemplateButtonsAsync(match.TemplateId);
             foreach (var button in buttons.Where(button => button.Type == ButtonType.Event))
@@ -296,7 +452,10 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
             var team = await _teamService.GetByIdWithPlayersAsync(match.TeamId)
                 ?? throw new InvalidOperationException("The match team could not be found.");
             foreach (var player in team.Players.OrderBy(player => player.Number).ThenBy(player => player.Name))
+            {
                 Players.Add(player);
+                PlayerChoices.Add(new PlayerChoiceViewModel(player));
+            }
             SelectedPlayer = Players.FirstOrDefault();
 
             var events = await _eventService.GetMatchEventsAsync(match.Id);
@@ -311,6 +470,7 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
             OnPropertyChanged(nameof(HasEvents));
             OnPropertyChanged(nameof(HasActions));
             OnPropertyChanged(nameof(HasPlayers));
+            RefreshTimelineLanes();
         }
         catch (Exception exception)
         {
@@ -351,6 +511,8 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
             {
                 _pendingDoublePressButton = button;
                 _pendingDoublePressStart = currentTime;
+                OnPropertyChanged(nameof(PendingPressButtonName));
+                OnPropertyChanged(nameof(HasPendingDoublePress));
                 OnPropertyChanged(nameof(PendingPressText));
                 OnPropertyChanged(nameof(HasPendingPress));
                 return;
@@ -397,6 +559,7 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
                 var domainEvent = await _eventService.CreateAsync(new Event(match.Id, button.Id, start, end, null));
                 InsertByStartTime(EventEntries, AnalysisEntryViewModel.FromEvent(domainEvent, button));
                 OnPropertyChanged(nameof(HasEvents));
+                RefreshTimelineLanes();
             }
             else
             {
@@ -427,7 +590,6 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
         EditNote = entry.Note ?? string.Empty;
         EditPlayer = entry.Player;
         EditRate = entry.Rate;
-        IsDeleteConfirmationOpen = false;
         ClearError();
         IsEditDialogOpen = true;
     }
@@ -474,6 +636,7 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
             {
                 EventEntries.Remove(entry);
                 InsertByStartTime(EventEntries, AnalysisEntryViewModel.FromEvent(entry.Event, entry.Button));
+                RefreshTimelineLanes();
             }
             else if (entry.Action is not null)
             {
@@ -492,10 +655,9 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
         }
     }
 
-    private async Task DeleteEntryAsync()
+    private async Task DeleteEntryAsync(object? parameter)
     {
-        var entry = EditingEntry;
-        if (entry is null)
+        if (parameter is not AnalysisEntryViewModel entry)
             return;
 
         IsBusy = true;
@@ -507,6 +669,7 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
                 await _eventService.RemoveAsync(entry.Event.Id);
                 EventEntries.Remove(entry);
                 OnPropertyChanged(nameof(HasEvents));
+                RefreshTimelineLanes();
             }
             else if (entry.Action is not null)
             {
@@ -515,7 +678,8 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
                 OnPropertyChanged(nameof(HasActions));
             }
 
-            CloseEditDialog();
+            if (EditingEntry == entry)
+                CloseEditDialog();
         }
         catch (Exception exception)
         {
@@ -530,10 +694,49 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
     private Button? FindButton(Guid buttonId) =>
         EventButtons.Concat(ActionButtons).FirstOrDefault(button => button.Id == buttonId);
 
+    private void RefreshTimelineLanes()
+    {
+        var existingLanes = EventTimelineLanes.ToDictionary(lane => lane.Button.Id);
+        var orderedLanes = EventButtons.Select(button =>
+        {
+            if (!existingLanes.TryGetValue(button.Id, out var lane))
+                lane = new EventTimelineLaneViewModel(button);
+
+            lane.Entries.Clear();
+            foreach (var entry in EventEntries.Where(entry => entry.Button?.Id == button.Id))
+            {
+                entry.UpdateTimelinePosition(PlaybackDurationSeconds, TimelineTrackWidth);
+                lane.Entries.Add(entry);
+            }
+            return lane;
+        }).ToArray();
+
+        EventTimelineLanes.Clear();
+        foreach (var lane in orderedLanes)
+            EventTimelineLanes.Add(lane);
+
+        OnPropertyChanged(nameof(HasEvents));
+    }
+
+    private static string NormalizeHotkey(string hotkey)
+    {
+        var parts = hotkey.Split('+', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        var modifiers = parts
+            .Take(Math.Max(0, parts.Length - 1))
+            .Select(part => part.Equals("Control", StringComparison.OrdinalIgnoreCase) ? "Ctrl" : part)
+            .OrderBy(part => part, StringComparer.OrdinalIgnoreCase);
+        var key = parts.LastOrDefault() ?? string.Empty;
+        if (key.Length == 2 && key[0] == 'D' && char.IsDigit(key[1]))
+            key = key[1].ToString();
+        return string.Join("+", modifiers.Append(key)).ToUpperInvariant();
+    }
+
     private void ClearPendingPress()
     {
         _pendingDoublePressButton = null;
         _pendingDoublePressStart = null;
+        OnPropertyChanged(nameof(PendingPressButtonName));
+        OnPropertyChanged(nameof(HasPendingDoublePress));
         OnPropertyChanged(nameof(PendingPressText));
         OnPropertyChanged(nameof(HasPendingPress));
     }
@@ -541,7 +744,6 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
     private void CloseEditDialog()
     {
         IsEditDialogOpen = false;
-        IsDeleteConfirmationOpen = false;
         EditingEntry = null;
         ClearError();
     }
@@ -587,8 +789,10 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
         foreach (var command in new ICommand[]
         {
             RecordButtonCommand, EditEntryCommand, SaveEntryCommand, DiscardEditCommand,
-            RequestDeleteEntryCommand, ConfirmDeleteEntryCommand, CancelDeleteEntryCommand,
-            SeekToEntryCommand, TogglePlaybackCommand, BackCommand
+            DeleteEntryCommand,
+            SeekToEntryCommand, TogglePlaybackCommand, BackCommand, SelectPlayerCommand,
+            SelectEventsTabCommand, SelectActionsTabCommand, SetActionRateCommand,
+            OpenNoteCommand, SaveNoteCommand, DiscardNoteCommand
         })
         {
             if (command is AsyncCommand asyncCommand)
@@ -646,8 +850,10 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
         public void NotifyCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    public sealed class AnalysisEntryViewModel
+    public sealed class AnalysisEntryViewModel : INotifyPropertyChanged
     {
+        public event PropertyChangedEventHandler? PropertyChanged;
+
         private AnalysisEntryViewModel(Event domainEvent, Button? button)
         {
             Event = domainEvent;
@@ -666,6 +872,9 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
             EndSeconds = ToSeconds(action.EndTime);
             Note = action.Note;
             Rate = action.Rate;
+            RateOptions = Enum.GetValues<ActionRate>()
+                .Select(rate => new ActionRateOptionViewModel(this, rate))
+                .ToArray();
         }
 
         public Event? Event { get; }
@@ -676,13 +885,16 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
         public double EndSeconds { get; private set; }
         public string? Note { get; private set; }
         public ActionRate Rate { get; private set; } = ActionRate.Natural;
+        public IReadOnlyList<ActionRateOptionViewModel> RateOptions { get; private set; } = [];
         public string ButtonName => Button?.Name ?? "Archived button";
-        public string NavigationLabel => $"{FormatClock(StartSeconds)} · {ButtonName}";
+        public string HotkeyLabel => Button?.HotKey ?? string.Empty;
         public string TimeRange => $"{FormatEditableTime(StartSeconds)} – {FormatEditableTime(EndSeconds)}";
         public string PlayerLabel => Player is null ? "Player not available" : $"#{Player.Number} {Player.Name}";
         public bool IsAction => Action is not null;
         public bool HasNote => !string.IsNullOrWhiteSpace(Note);
         public string? NoteDisplay => HasNote ? Note : "No note";
+        public double TimelineLeft { get; private set; }
+        public double TimelineWidth { get; private set; }
 
         public static AnalysisEntryViewModel FromEvent(Event domainEvent, Button? button) =>
             new(domainEvent, button);
@@ -690,5 +902,88 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
         public static AnalysisEntryViewModel FromAction(Action action, Button? button, Player? player) =>
             new(action, button, player);
 
+        public void UpdateTimelinePosition(double durationSeconds, double trackWidth)
+        {
+            var duration = durationSeconds > 0 ? durationSeconds : ManualTimelineDurationSeconds;
+            TimelineLeft = Math.Clamp(StartSeconds / duration * trackWidth, 0, trackWidth - 10);
+            TimelineWidth = Math.Clamp(
+                Math.Max(10, (EndSeconds - StartSeconds) / duration * trackWidth),
+                10,
+                Math.Max(10, trackWidth - TimelineLeft));
+        }
+
+        public void SetRate(ActionRate rate)
+        {
+            Rate = rate;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Rate)));
+            foreach (var option in RateOptions)
+                option.Refresh();
+        }
+
+        public void SetNote(string note)
+        {
+            Note = note;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Note)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasNote)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NoteDisplay)));
+        }
+    }
+
+    public sealed class ActionRateOptionViewModel(
+        AnalysisEntryViewModel entry,
+        ActionRate rate) : INotifyPropertyChanged
+    {
+        public event PropertyChangedEventHandler? PropertyChanged;
+        public AnalysisEntryViewModel Entry { get; } = entry ?? throw new ArgumentNullException(nameof(entry));
+        public ActionRate Rate { get; } = rate;
+        public string Glyph => Rate switch
+        {
+            ActionRate.Good => "✓",
+            ActionRate.Natural => "•",
+            ActionRate.Bad => "×",
+            _ => string.Empty
+        };
+        public IBrush IconBrush => Rate switch
+        {
+            ActionRate.Good => Brushes.LimeGreen,
+            ActionRate.Natural => Brushes.Goldenrod,
+            ActionRate.Bad => Brushes.IndianRed,
+            _ => Brushes.Gray
+        };
+        public string ToolTip => Rate.ToString();
+        public bool IsSelected => Entry.Rate == Rate;
+
+        public void Refresh() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+    }
+
+    public sealed class EventTimelineLaneViewModel(Button button)
+    {
+        public Button Button { get; } = button ?? throw new ArgumentNullException(nameof(button));
+        public ObservableCollection<AnalysisEntryViewModel> Entries { get; } = [];
+        public string Name => Button.Name ?? "Event";
+        public string HotkeyLabel => Button.HotKey ?? string.Empty;
+        public bool HasHotkey => Button.HasHotkey;
+    }
+
+    public sealed class PlayerChoiceViewModel(Player player) : INotifyPropertyChanged
+    {
+        private bool _isSelected;
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+        public Player Player { get; } = player ?? throw new ArgumentNullException(nameof(player));
+        public string DisplayName => $"#{Player.Number} {Player.Name}";
+
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set
+            {
+                if (_isSelected == value)
+                    return;
+
+                _isSelected = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+            }
+        }
     }
 }

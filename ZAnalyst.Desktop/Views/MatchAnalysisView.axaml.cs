@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Threading;
 using LibVLCSharp.Shared;
 using System.ComponentModel;
@@ -121,9 +122,7 @@ public partial class MatchAnalysisView : UserControl
                 throw new FileNotFoundException("The selected video file could not be found.", path);
 
             _media = new Media(_libVlc!, path, FromType.FromPath);
-            if (!_mediaPlayer.Play(_media))
-                throw new InvalidOperationException("The video player could not start the selected file.");
-            _mediaPlayer.Pause();
+            _mediaPlayer.Media = _media;
             _viewModel?.UpdatePlaybackState(0, GetDurationSeconds(), isPlaying: false);
             _playbackTimer?.Start();
         }
@@ -181,5 +180,11 @@ public partial class MatchAnalysisView : UserControl
     {
         if (_viewModel is not null)
             _viewModel.PlaybackPositionSeconds += 5;
+    }
+
+    private void EditTimelineEntry_DoubleTapped(object? sender, TappedEventArgs eventArgs)
+    {
+        if (sender is Button { DataContext: MatchAnalysisViewModel.AnalysisEntryViewModel entry })
+            _viewModel?.EditEntryCommand.Execute(entry);
     }
 }

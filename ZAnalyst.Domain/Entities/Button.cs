@@ -14,6 +14,7 @@ public class Button: Entity
     public float PostSec { get; private set; } = 0;
     public string? Note { get; private set; }
     public string? HotKey { get; set; }
+    public bool HasHotkey => !string.IsNullOrWhiteSpace(HotKey);
     public DateTime CreatedAt { get; private set; }
     public DateTime UpdatedAt { get; private set; }
 

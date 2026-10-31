@@ -46,5 +46,6 @@ public partial class MainWindow : Window
         };
         Hide();
         _matchAnalysisWindow.Show();
+        _matchAnalysisWindow.Activate();
     }
 }

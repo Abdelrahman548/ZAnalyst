@@ -252,8 +252,12 @@
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
-                            <TextBox Text="{Binding Hotkey}" PlaceholderText="Hotkey (optional)"
-                                     IsEnabled="{Binding IsButtonEditorEnabled}" />
+                            <StackPanel Spacing="5">
+                                <TextBox Text="{Binding Hotkey}" PlaceholderText="Hotkey (optional, e.g. C or Ctrl+1)"
+                                         IsEnabled="{Binding IsButtonEditorEnabled}" />
+                                <TextBlock Text="Press this key in match analysis to record the button."
+                                           FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
+                            </StackPanel>
                             <TextBox Text="{Binding Note}" PlaceholderText="Note (optional)"
                                      IsEnabled="{Binding IsButtonEditorEnabled}" />
                             <Grid ColumnDefinitions="*,*" ColumnSpacing="8"
