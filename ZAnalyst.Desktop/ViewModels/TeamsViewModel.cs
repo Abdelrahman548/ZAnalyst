@@ -29,6 +29,12 @@ public sealed class TeamsViewModel : WorkspacePageViewModel, INotifyPropertyChan
     private string? _toastTitle;
     private bool _isBusy = true;
     private bool _isReloadingTeams;
+    private bool _isTeamDialogOpen;
+    private bool _isEditingTeamDialog;
+    private bool _isDeleteTeamConfirmationOpen;
+    private bool _isPlayerDialogOpen;
+    private bool _isEditingPlayerDialog;
+    private bool _isDeletePlayerConfirmationOpen;
 
     public TeamsViewModel(ITeamService teamService, IPlayerService playerService)
         : base("Teams & players", "Organize squads and the players available for analysis.")
@@ -41,15 +47,26 @@ public sealed class TeamsViewModel : WorkspacePageViewModel, INotifyPropertyChan
             ToastMessage = null;
         };
 
+        OpenCreateTeamCommand = new RelayCommand(_ => OpenTeamDialog(), _ => !IsBusy);
+        OpenEditTeamCommand = new RelayCommand(_ => OpenEditTeamDialog(), _ => !IsBusy && SelectedTeam is not null);
+        EditTeamCommand = new RelayCommand(_ => OpenEditTeamDialog(), _ => !IsBusy && SelectedTeam is not null);
         CreateTeamCommand = new AsyncCommand(CreateTeamAsync, CanCreateTeam);
         UpdateTeamCommand = new AsyncCommand(UpdateTeamAsync, CanUpdateTeam);
-        DeleteTeamCommand = new AsyncCommand(DeleteTeamAsync, CanDeleteTeam);
-        EditTeamCommand = new RelayCommand(BeginTeamEdit, parameter => parameter is Team);
+        DeleteTeamCommand = new RelayCommand(_ => IsDeleteTeamConfirmationOpen = true, _ => !IsBusy && SelectedTeam is not null);
+        ConfirmDeleteTeamCommand = new AsyncCommand(DeleteTeamAsync, _ => !IsBusy && IsDeleteTeamConfirmationOpen && SelectedTeam is not null);
+        OpenCreatePlayerCommand = new RelayCommand(_ => OpenPlayerDialog(), _ => !IsBusy && SelectedTeam is not null);
         CreatePlayerCommand = new AsyncCommand(CreatePlayerAsync, CanCreatePlayer);
         UpdatePlayerCommand = new AsyncCommand(UpdatePlayerAsync, CanUpdatePlayer);
-        DeletePlayerCommand = new AsyncCommand(DeletePlayerAsync, CanDeletePlayer);
-        EditPlayerCommand = new RelayCommand(BeginPlayerEdit, parameter => parameter is Player);
-        CancelPlayerEditCommand = new RelayCommand(CancelPlayerEdit, () => SelectedPlayer is not null);
+        DeletePlayerCommand = new RelayCommand(_ => IsDeletePlayerConfirmationOpen = true, _ => !IsBusy && SelectedPlayer is not null);
+        ConfirmDeletePlayerCommand = new AsyncCommand(DeletePlayerAsync, _ => !IsBusy && IsDeletePlayerConfirmationOpen && SelectedPlayer is not null);
+        EditPlayerCommand = new RelayCommand(BeginPlayerEdit, parameter => !IsBusy && parameter is Player);
+        CancelPlayerEditCommand = new RelayCommand(ClosePlayerDialog, () => !IsBusy);
+        SaveTeamDialogCommand = new AsyncCommand(SaveTeamDialogAsync, CanSaveTeamDialog);
+        SavePlayerDialogCommand = new AsyncCommand(SavePlayerDialogAsync, CanSavePlayerDialog);
+        DiscardTeamDialogCommand = new RelayCommand(_ => CloseTeamDialog(), _ => !IsBusy);
+        DiscardPlayerDialogCommand = new RelayCommand(_ => ClosePlayerDialog(), _ => !IsBusy);
+        CancelTeamDeleteCommand = new RelayCommand(_ => IsDeleteTeamConfirmationOpen = false, _ => !IsBusy);
+        CancelPlayerDeleteCommand = new RelayCommand(_ => IsDeletePlayerConfirmationOpen = false, _ => !IsBusy);
         RefreshCommand = new AsyncCommand(LoadTeamsAsync, () => !IsBusy);
     }
 
@@ -59,15 +76,121 @@ public sealed class TeamsViewModel : WorkspacePageViewModel, INotifyPropertyChan
     public ObservableCollection<Player> Players { get; } = [];
     public ObservableCollection<Player> VisiblePlayers { get; } = [];
     public ICommand CreateTeamCommand { get; }
+    public ICommand OpenCreateTeamCommand { get; }
+    public ICommand OpenEditTeamCommand { get; }
     public ICommand UpdateTeamCommand { get; }
     public ICommand DeleteTeamCommand { get; }
+    public ICommand ConfirmDeleteTeamCommand { get; }
     public ICommand EditTeamCommand { get; }
+    public ICommand SaveTeamDialogCommand { get; }
+    public ICommand DiscardTeamDialogCommand { get; }
+    public ICommand CancelTeamDeleteCommand { get; }
+    public ICommand OpenCreatePlayerCommand { get; }
     public ICommand CreatePlayerCommand { get; }
     public ICommand UpdatePlayerCommand { get; }
     public ICommand DeletePlayerCommand { get; }
+    public ICommand ConfirmDeletePlayerCommand { get; }
     public ICommand EditPlayerCommand { get; }
     public ICommand CancelPlayerEditCommand { get; }
+    public ICommand SavePlayerDialogCommand { get; }
+    public ICommand DiscardPlayerDialogCommand { get; }
+    public ICommand CancelPlayerDeleteCommand { get; }
     public ICommand RefreshCommand { get; }
+
+    public bool IsTeamDialogOpen
+    {
+        get => _isTeamDialogOpen;
+        private set
+        {
+            if (SetProperty(ref _isTeamDialogOpen, value))
+            {
+                OnPropertyChanged(nameof(IsAnyDialogOpen));
+                OnPropertyChanged(nameof(IsTeamEditorVisible));
+                NotifyCommandStates();
+            }
+        }
+    }
+
+    public bool IsEditingTeamDialog
+    {
+        get => _isEditingTeamDialog;
+        private set
+        {
+            if (SetProperty(ref _isEditingTeamDialog, value))
+            {
+                OnPropertyChanged(nameof(IsCreatingTeamDialog));
+                OnPropertyChanged(nameof(TeamDialogTitle));
+                NotifyCommandStates();
+            }
+        }
+    }
+
+    public bool IsCreatingTeamDialog => !IsEditingTeamDialog;
+    public string TeamDialogTitle => IsEditingTeamDialog ? "Edit team" : "New team";
+
+    public bool IsDeleteTeamConfirmationOpen
+    {
+        get => _isDeleteTeamConfirmationOpen;
+        set
+        {
+            if (SetProperty(ref _isDeleteTeamConfirmationOpen, value))
+            {
+                OnPropertyChanged(nameof(IsAnyDialogOpen));
+                OnPropertyChanged(nameof(IsTeamEditorVisible));
+                NotifyCommandStates();
+            }
+        }
+    }
+
+    public bool IsPlayerDialogOpen
+    {
+        get => _isPlayerDialogOpen;
+        private set
+        {
+            if (SetProperty(ref _isPlayerDialogOpen, value))
+            {
+                OnPropertyChanged(nameof(IsAnyDialogOpen));
+                OnPropertyChanged(nameof(IsPlayerEditorVisible));
+                NotifyCommandStates();
+            }
+        }
+    }
+
+    public bool IsEditingPlayerDialog
+    {
+        get => _isEditingPlayerDialog;
+        private set
+        {
+            if (SetProperty(ref _isEditingPlayerDialog, value))
+            {
+                OnPropertyChanged(nameof(IsCreatingPlayerDialog));
+                OnPropertyChanged(nameof(PlayerDialogTitle));
+                NotifyCommandStates();
+            }
+        }
+    }
+
+    public bool IsCreatingPlayerDialog => !IsEditingPlayerDialog;
+    public string PlayerDialogTitle => IsEditingPlayerDialog ? "Edit player" : "New player";
+
+    public bool IsDeletePlayerConfirmationOpen
+    {
+        get => _isDeletePlayerConfirmationOpen;
+        set
+        {
+            if (SetProperty(ref _isDeletePlayerConfirmationOpen, value))
+            {
+                OnPropertyChanged(nameof(IsAnyDialogOpen));
+                OnPropertyChanged(nameof(IsPlayerEditorVisible));
+                NotifyCommandStates();
+            }
+        }
+    }
+
+    public bool IsAnyDialogOpen =>
+        IsTeamDialogOpen || IsDeleteTeamConfirmationOpen || IsPlayerDialogOpen || IsDeletePlayerConfirmationOpen;
+    public bool IsTeamEditorVisible => IsTeamDialogOpen && !IsDeleteTeamConfirmationOpen;
+    public bool IsPlayerEditorVisible => IsPlayerDialogOpen && !IsDeletePlayerConfirmationOpen;
 
     public Team? SelectedTeam
     {
@@ -84,6 +207,7 @@ public sealed class TeamsViewModel : WorkspacePageViewModel, INotifyPropertyChan
             NotifyPlayersChanged();
             OnPropertyChanged();
             OnPropertyChanged(nameof(HasSelectedTeam));
+            OnPropertyChanged(nameof(IsTeamSelected));
             OnPropertyChanged(nameof(RosterTitle));
             OnPropertyChanged(nameof(EmptyRosterMessage));
             ClearError();
@@ -109,6 +233,7 @@ public sealed class TeamsViewModel : WorkspacePageViewModel, INotifyPropertyChan
             OnPropertyChanged();
             OnPropertyChanged(nameof(HasSelectedPlayer));
             OnPropertyChanged(nameof(HasNoSelectedPlayer));
+            OnPropertyChanged(nameof(PlayerDialogTitle));
             NotifyCommandStates();
         }
     }
@@ -226,6 +351,7 @@ public sealed class TeamsViewModel : WorkspacePageViewModel, INotifyPropertyChan
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
     public bool HasToast => !string.IsNullOrWhiteSpace(ToastMessage);
     public bool HasSelectedTeam => SelectedTeam is not null;
+    public bool IsTeamSelected => SelectedTeam is not null;
     public bool HasSelectedPlayer => SelectedPlayer is not null;
     public bool HasNoSelectedPlayer => SelectedPlayer is null;
     public bool HasTeams => Teams.Count > 0;
@@ -343,6 +469,7 @@ public sealed class TeamsViewModel : WorkspacePageViewModel, INotifyPropertyChan
             await _teamService.RemoveAsync(team.Id);
             Teams.Remove(team);
             NotifyTeamsChanged();
+            IsDeleteTeamConfirmationOpen = false;
             var wasSelected = SelectedTeam?.Id == team.Id;
             if (!wasSelected)
                 return;
@@ -361,7 +488,7 @@ public sealed class TeamsViewModel : WorkspacePageViewModel, INotifyPropertyChan
         }
         catch (TeamHasPlayersOrMatchesException exception)
         {
-            ShowToast("Unable to delete team", exception.Message);
+            ErrorMessage = exception.Message;
         }
         catch (Exception exception)
         {
@@ -418,7 +545,6 @@ public sealed class TeamsViewModel : WorkspacePageViewModel, INotifyPropertyChan
             await _playerService.UpdateAsync(player.Id, player);
             Players.Remove(player);
             InsertPlayerInNumberOrder(player);
-            SelectedPlayer = player;
             NotifyPlayersChanged();
         }
         catch (Exception exception)
@@ -448,11 +574,13 @@ public sealed class TeamsViewModel : WorkspacePageViewModel, INotifyPropertyChan
             await _playerService.RemoveAsync(player.Id);
             Players.Remove(player);
             SelectedPlayer = null;
+            IsDeletePlayerConfirmationOpen = false;
+            IsPlayerDialogOpen = false;
             NotifyPlayersChanged();
         }
         catch (PlayerHasRecordedActionsException exception)
         {
-            ShowToast("Unable to delete player", exception.Message);
+            ErrorMessage = exception.Message;
         }
         catch (Exception exception)
         {
@@ -464,8 +592,6 @@ public sealed class TeamsViewModel : WorkspacePageViewModel, INotifyPropertyChan
             IsBusy = false;
         }
     }
-
-    private void CancelPlayerEdit() => SelectedPlayer = null;
 
     private async Task LoadPlayersAsync(Team team)
     {
@@ -503,10 +629,99 @@ public sealed class TeamsViewModel : WorkspacePageViewModel, INotifyPropertyChan
         NotifyPlayersChanged();
     }
 
+    private void OpenTeamDialog()
+    {
+        IsEditingTeamDialog = false;
+        NewTeamName = string.Empty;
+        ClearError();
+        IsTeamDialogOpen = true;
+    }
+
+    private void OpenEditTeamDialog()
+    {
+        if (SelectedTeam is not { } team)
+            return;
+
+        EditTeamName = team.Name;
+        IsEditingTeamDialog = true;
+        ClearError();
+        IsTeamDialogOpen = true;
+    }
+
+    private void CloseTeamDialog()
+    {
+        IsTeamDialogOpen = false;
+        IsEditingTeamDialog = false;
+        NewTeamName = string.Empty;
+        EditTeamName = SelectedTeam?.Name ?? string.Empty;
+    }
+
+    private async Task SaveTeamDialogAsync()
+    {
+        if (IsEditingTeamDialog)
+            await UpdateTeamAsync();
+        else
+            await CreateTeamAsync();
+
+        if (!HasError)
+            CloseTeamDialog();
+    }
+
+    private bool CanSaveTeamDialog() =>
+        !IsBusy
+        && IsTeamDialogOpen
+        && (IsEditingTeamDialog
+            ? SelectedTeam is not null && !string.IsNullOrWhiteSpace(EditTeamName)
+            : !string.IsNullOrWhiteSpace(NewTeamName));
+
+    private void OpenPlayerDialog()
+    {
+        SelectedPlayer = null;
+        NewPlayerName = string.Empty;
+        NewPlayerNumber = string.Empty;
+        ClearError();
+        IsEditingPlayerDialog = false;
+        IsPlayerDialogOpen = true;
+    }
+
+    private void ClosePlayerDialog()
+    {
+        IsPlayerDialogOpen = false;
+        IsEditingPlayerDialog = false;
+        IsDeletePlayerConfirmationOpen = false;
+        SelectedPlayer = null;
+        NewPlayerName = string.Empty;
+        NewPlayerNumber = string.Empty;
+        EditPlayerName = string.Empty;
+        EditPlayerNumber = string.Empty;
+        ClearError();
+    }
+
+    private async Task SavePlayerDialogAsync()
+    {
+        if (IsEditingPlayerDialog)
+            await UpdatePlayerAsync();
+        else
+            await CreatePlayerAsync();
+
+        if (!HasError)
+            ClosePlayerDialog();
+    }
+
+    private bool CanSavePlayerDialog() =>
+        !IsBusy
+        && IsPlayerDialogOpen
+        && SelectedTeam is not null
+        && (IsEditingPlayerDialog
+            ? SelectedPlayer is not null
+                && !string.IsNullOrWhiteSpace(EditPlayerName)
+                && !string.IsNullOrWhiteSpace(EditPlayerNumber)
+            : SelectedPlayer is null
+                && !string.IsNullOrWhiteSpace(NewPlayerName)
+                && !string.IsNullOrWhiteSpace(NewPlayerNumber));
+
     private bool CanCreateTeam() => !IsBusy && !string.IsNullOrWhiteSpace(NewTeamName);
     private bool CanUpdateTeam() => !IsBusy && SelectedTeam is not null && !string.IsNullOrWhiteSpace(EditTeamName);
-    private bool CanDeleteTeam(object? parameter = null) =>
-        !IsBusy && (parameter is Team || SelectedTeam is not null);
     private bool CanCreatePlayer() =>
         !IsBusy
         && SelectedTeam is not null
@@ -517,9 +732,6 @@ public sealed class TeamsViewModel : WorkspacePageViewModel, INotifyPropertyChan
         !IsBusy && SelectedPlayer is not null
         && !string.IsNullOrWhiteSpace(EditPlayerName)
         && !string.IsNullOrWhiteSpace(EditPlayerNumber);
-    private bool CanDeletePlayer(object? parameter = null) =>
-        !IsBusy && (parameter is Player || SelectedPlayer is not null);
-
     private void BeginTeamEdit(object? parameter)
     {
         if (parameter is Team team)
@@ -529,7 +741,14 @@ public sealed class TeamsViewModel : WorkspacePageViewModel, INotifyPropertyChan
     private void BeginPlayerEdit(object? parameter)
     {
         if (parameter is Player player)
+        {
             SelectedPlayer = player;
+            EditPlayerName = player.Name;
+            EditPlayerNumber = player.Number.ToString(CultureInfo.InvariantCulture);
+            IsEditingPlayerDialog = true;
+            ClearError();
+            IsPlayerDialogOpen = true;
+        }
     }
 
     private static int ParsePlayerNumber(string value)
@@ -602,9 +821,12 @@ public sealed class TeamsViewModel : WorkspacePageViewModel, INotifyPropertyChan
     {
         foreach (var command in new ICommand[]
         {
-            CreateTeamCommand, UpdateTeamCommand, DeleteTeamCommand, EditTeamCommand,
-            CreatePlayerCommand, UpdatePlayerCommand, DeletePlayerCommand, EditPlayerCommand,
-            CancelPlayerEditCommand, RefreshCommand
+            CreateTeamCommand, OpenCreateTeamCommand, OpenEditTeamCommand, UpdateTeamCommand,
+            DeleteTeamCommand, ConfirmDeleteTeamCommand, EditTeamCommand, SaveTeamDialogCommand,
+            DiscardTeamDialogCommand, CancelTeamDeleteCommand, OpenCreatePlayerCommand,
+            CreatePlayerCommand, UpdatePlayerCommand, DeletePlayerCommand, ConfirmDeletePlayerCommand,
+            EditPlayerCommand, CancelPlayerEditCommand, SavePlayerDialogCommand,
+            DiscardPlayerDialogCommand, CancelPlayerDeleteCommand, RefreshCommand
         })
         {
             if (command is AsyncCommand asyncCommand)
