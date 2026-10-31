@@ -16,6 +16,13 @@
         <Geometry x:Key="PlayerFilterIconGeometry">M12 12A4 4 0 1 0 12 4A4 4 0 0 0 12 12ZM4 21A8 8 0 0 1 20 21</Geometry>
         <Geometry x:Key="RateFilterIconGeometry">M4 5H20L14 12V19L10 21V12L4 5Z</Geometry>
         <Geometry x:Key="ActionFilterIconGeometry">M4 5H20M4 12H20M4 19H20M8 3V7M15 10V14M11 17V21</Geometry>
+        <Geometry x:Key="PerfectIconGeometry">M12 2L15.1 8.3L22 9.3L17 14.2L18.2 21L12 17.7L5.8 21L7 14.2L2 9.3L8.9 8.3Z</Geometry>
+        <Geometry x:Key="LikeIconGeometry">M7 10V21H3V10H7ZM10 10L14 3C15.7 3 16.8 4.5 16.3 6.1L15.2 10H19C20.3 10 21.2 11.2 20.8 12.4L18.7 19.4C18.4 20.3 17.6 21 16.6 21H9C7.9 21 7 20.1 7 19V12C7 11.4 7.3 10.8 7.7 10.4L10 10Z</Geometry>
+        <Geometry x:Key="DislikeIconGeometry">M17 14V3H21V14H17ZM14 14L10 21C8.3 21 7.2 19.5 7.7 17.9L8.8 14H5C3.7 14 2.8 12.8 3.2 11.6L5.3 4.6C5.6 3.7 6.4 3 7.4 3H15C16.1 3 17 3.9 17 5V12C17 12.6 16.7 13.2 16.3 13.6L14 14Z</Geometry>
+        <Geometry x:Key="PlayIconGeometry">M6 3L20 12L6 21Z</Geometry>
+        <Geometry x:Key="PauseIconGeometry">M5 4H10V20H5ZM14 4H19V20H14Z</Geometry>
+        <Geometry x:Key="BackFiveIconGeometry">M12 5V2L7 7L12 12V9C15.3 9 18 11.7 18 15C18 18.3 15.3 21 12 21C9.4 21 7.2 19.3 6.3 17H3.2C4.2 21 7.8 24 12 24C17 24 21 20 21 15C21 9.5 17 5 12 5Z</Geometry>
+        <Geometry x:Key="ForwardFiveIconGeometry">M12 5V2L17 7L12 12V9C8.7 9 6 11.7 6 15C6 18.3 8.7 21 12 21C14.6 21 16.8 19.3 17.7 17H20.8C19.8 21 16.2 24 12 24C7 24 3 20 3 15C3 9.5 7 5 12 5Z</Geometry>
     </UserControl.Resources>
     <UserControl.Styles>
         <Style Selector="Button.action-icon">
@@ -80,6 +87,11 @@
             <Setter Property="Background" Value="#202A36" />
             <Setter Property="BorderBrush" Value="#526174" />
         </Style>
+        <Style Selector="Border.analysis-entry.selected-clip">
+            <Setter Property="Background" Value="#283B50" />
+            <Setter Property="BorderBrush" Value="#55B8FF" />
+            <Setter Property="BorderThickness" Value="2" />
+        </Style>
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12">
@@ -106,6 +118,9 @@
             <Button Content="Actions" Classes="mode-tab"
                     Classes.selected="{Binding IsActionTab}"
                     Command="{Binding SelectActionsTabCommand}" />
+            <Button Content="Action clips" Classes="mode-tab"
+                    Classes.selected="{Binding IsClipTab}"
+                    Command="{Binding SelectClipsTabCommand}" />
         </StackPanel>
 
         <Border Grid.Row="2" Classes="surface-card" Padding="0">
@@ -128,15 +143,29 @@
                             </Grid>
                             <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,Auto,*,Auto"
                                   ColumnSpacing="9" Margin="12,8">
-                                <Button Content="‹ 5s" Click="BackFiveSeconds_Click" />
-                                <Button Grid.Column="1" Content="+ 5s" Click="ForwardFiveSeconds_Click" />
-                                <Button Grid.Column="2" Content="{Binding PlaybackButtonText}"
-                                        Command="{Binding TogglePlaybackCommand}" IsEnabled="{Binding HasVideo}" />
-                                <Slider Grid.Column="3" Minimum="0" Maximum="{Binding PlaybackDurationSeconds}"
+                                <Button ToolTip.Tip="Back 5 seconds" Click="BackFiveSeconds_Click"
+                                        Width="36" Height="34" Padding="0">
+                                    <PathIcon Data="{StaticResource BackFiveIconGeometry}" Width="20" Height="20"
+                                              Foreground="#DCE6F2" />
+                                </Button>
+                                <Button Grid.Column="1" ToolTip.Tip="Skip forward 5 seconds"
+                                        Click="ForwardFiveSeconds_Click" Width="36" Height="34" Padding="0">
+                                    <PathIcon Data="{StaticResource ForwardFiveIconGeometry}" Width="20" Height="20"
+                                              Foreground="#DCE6F2" />
+                                </Button>
+                                <Button Grid.Column="2" ToolTip.Tip="{Binding PlaybackButtonText}"
+                                        Command="{Binding TogglePlaybackCommand}"
+                                        IsEnabled="{Binding IsPlaybackSliderEnabled}"
+                                        Width="40" Height="34" Padding="0">
+                                    <PathIcon Data="{Binding PlaybackIconGeometry}" Width="18" Height="18"
+                                              Foreground="#FFFFFF" />
+                                </Button>
+                                <Slider Grid.Column="3" Minimum="{Binding PlaybackSliderMinimum}"
+                                        Maximum="{Binding PlaybackSliderMaximum}"
                                         Value="{Binding PlaybackPositionSeconds, Mode=TwoWay}"
-                                        IsEnabled="{Binding HasMatch}" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="4" Text="{Binding DurationText}" FontSize="11"
-                                           VerticalAlignment="Center"
+                                        IsEnabled="{Binding IsPlaybackSliderEnabled}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="4" Text="{Binding PlaybackRangeText}"
+                                           FontSize="11" VerticalAlignment="Center"
                                            Foreground="{DynamicResource MutedTextBrush}" />
                             </Grid>
                         </Grid>
@@ -231,7 +260,7 @@
                         BorderThickness="1,0,0,0" Padding="16">
                     <Grid RowDefinitions="Auto,*" RowSpacing="8">
                         <Border Classes="surface-card" Padding="6,5"
-                                IsVisible="{Binding IsActionTab}">
+                                IsVisible="{Binding IsActionOrClipTab}">
                             <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <PathIcon Data="{StaticResource PlayerFilterIconGeometry}" Width="16" Height="16"
                                           Foreground="#55B8FF" VerticalAlignment="Center" />
@@ -247,21 +276,30 @@
                                 </ComboBox>
                                 <PathIcon Data="{StaticResource RateFilterIconGeometry}" Width="16" Height="16"
                                           Foreground="#B69CFF" VerticalAlignment="Center" Margin="4,0,2,0" />
-                                <Button Content="✓" Classes="rate-filter"
+                                <Button Classes="rate-filter"
                                         Classes.selected="{Binding IsGoodRateFilterSelected}"
-                                        Foreground="#38C981" ToolTip.Tip="Good actions only"
+                                        Foreground="#38C981" ToolTip.Tip="Perfect actions only"
                                         Command="{Binding ToggleActionRateFilterCommand}"
-                                        CommandParameter="{x:Static enums:ActionRate.Good}" />
-                                <Button Content="•" Classes="rate-filter"
+                                        CommandParameter="{x:Static enums:ActionRate.Good}">
+                                    <PathIcon Data="{StaticResource PerfectIconGeometry}" Width="17" Height="17"
+                                              Foreground="#38C981" />
+                                </Button>
+                                <Button Classes="rate-filter"
                                         Classes.selected="{Binding IsNaturalRateFilterSelected}"
-                                        Foreground="#F3C653" ToolTip.Tip="Natural actions only"
+                                        Foreground="#F3C653" ToolTip.Tip="Like actions only"
                                         Command="{Binding ToggleActionRateFilterCommand}"
-                                        CommandParameter="{x:Static enums:ActionRate.Natural}" />
-                                <Button Content="×" Classes="rate-filter"
+                                        CommandParameter="{x:Static enums:ActionRate.Natural}">
+                                    <PathIcon Data="{StaticResource LikeIconGeometry}" Width="17" Height="17"
+                                              Foreground="#F3C653" />
+                                </Button>
+                                <Button Classes="rate-filter"
                                         Classes.selected="{Binding IsBadRateFilterSelected}"
-                                        Foreground="#F07178" ToolTip.Tip="Bad actions only"
+                                        Foreground="#F07178" ToolTip.Tip="Disliked actions only"
                                         Command="{Binding ToggleActionRateFilterCommand}"
-                                        CommandParameter="{x:Static enums:ActionRate.Bad}" />
+                                        CommandParameter="{x:Static enums:ActionRate.Bad}">
+                                    <PathIcon Data="{StaticResource DislikeIconGeometry}" Width="17" Height="17"
+                                              Foreground="#F07178" />
+                                </Button>
                                 <PathIcon Data="{StaticResource ActionFilterIconGeometry}" Width="16" Height="16"
                                           Foreground="#55B8FF" VerticalAlignment="Center" Margin="4,0,2,0" />
                                 <ComboBox Classes="filter-select" Width="112"
@@ -413,16 +451,14 @@
                                                             </ItemsControl.ItemsPanel>
                                                             <ItemsControl.ItemTemplate>
                                                                 <DataTemplate x:DataType="vm:MatchAnalysisViewModel+ActionRateOptionViewModel">
-                                                                    <Button ToolTip.Tip="{Binding ToolTip}"
+                                                                    <Button ToolTip.Tip="{Binding Label}"
                                                                             Classes="rate-option action-icon"
                                                                             Classes.selected="{Binding IsSelected}"
                                                                             Command="{Binding $parent[UserControl].((vm:MatchAnalysisViewModel)DataContext).SetActionRateCommand}"
                                                                             CommandParameter="{Binding}">
-                                                                        <TextBlock Text="{Binding Glyph}"
-                                                                                   Foreground="{Binding IconBrush}"
-                                                                                   FontSize="16" FontWeight="Bold"
-                                                                                   HorizontalAlignment="Center"
-                                                                                   VerticalAlignment="Center" />
+                                                                        <PathIcon Data="{Binding IconGeometry}"
+                                                                                  Foreground="{Binding IconBrush}"
+                                                                                  Width="17" Height="17" />
                                                                     </Button>
                                                                 </DataTemplate>
                                                             </ItemsControl.ItemTemplate>
@@ -554,6 +590,99 @@
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                        TextWrapping="Wrap" TextAlignment="Center" FontSize="11"
                                        Foreground="{DynamicResource MutedTextBrush}" />
+                        </Grid>
+                    </Grid>
+                    <Grid Grid.Row="1" RowDefinitions="Auto,*" RowSpacing="10"
+                          IsVisible="{Binding IsClipTab}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="ACTION CLIPS" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource SecondaryTextBrush}" />
+                                <TextBlock Text="Select an action to limit the video to its recorded time."
+                                           FontSize="11" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource MutedTextBrush}" />
+                            </StackPanel>
+                            <TextBlock Grid.Column="1" Text="{Binding FilteredActionCount}"
+                                       FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
+                        </Grid>
+                        <Grid Grid.Row="1">
+                            <ScrollViewer>
+                                <ItemsControl ItemsSource="{Binding FilteredActionEntries}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:MatchAnalysisViewModel+AnalysisEntryViewModel">
+                                            <Border Classes="analysis-entry"
+                                                    Classes.selected-clip="{Binding IsSelectedClip}"
+                                                    BorderThickness="1" CornerRadius="6"
+                                                    Padding="5,4" Margin="0,0,0,5">
+                                                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="5">
+                                                    <Button HorizontalContentAlignment="Left"
+                                                            Background="Transparent" BorderThickness="0"
+                                                            Command="{Binding $parent[UserControl].((vm:MatchAnalysisViewModel)DataContext).SelectActionClipCommand}"
+                                                            CommandParameter="{Binding}">
+                                                        <Grid ColumnDefinitions="*,Auto">
+                                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                                <TextBlock Text="{Binding ButtonName}" FontSize="12"
+                                                                           FontWeight="Bold"
+                                                                           Foreground="#F4F7FB" />
+                                                                <TextBlock Text="{Binding PlayerLabel}" FontSize="11"
+                                                                           Foreground="#B8C6D9" />
+                                                            </StackPanel>
+                                                            <TextBlock Grid.Column="1" Text="{Binding TimeRange}"
+                                                                       FontSize="10" FontWeight="SemiBold"
+                                                                       Foreground="#DCE6F2" />
+                                                        </Grid>
+                                                    </Button>
+                                                    <ItemsControl Grid.Column="1" ItemsSource="{Binding RateOptions}"
+                                                                  VerticalAlignment="Center">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="3" /></ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate x:DataType="vm:MatchAnalysisViewModel+ActionRateOptionViewModel">
+                                                                <Button Classes="rate-option action-icon"
+                                                                        Classes.selected="{Binding IsSelected}"
+                                                                        ToolTip.Tip="{Binding Label}"
+                                                                        Command="{Binding $parent[UserControl].((vm:MatchAnalysisViewModel)DataContext).SetActionRateCommand}"
+                                                                        CommandParameter="{Binding}">
+                                                                    <PathIcon Data="{Binding IconGeometry}"
+                                                                              Foreground="{Binding IconBrush}"
+                                                                              Width="17" Height="17" />
+                                                                </Button>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    <Button Grid.Column="2" Classes="action-icon edit-icon"
+                                                            ToolTip.Tip="Edit action"
+                                                            Command="{Binding $parent[UserControl].((vm:MatchAnalysisViewModel)DataContext).EditEntryCommand}"
+                                                            CommandParameter="{Binding}">
+                                                        <PathIcon Data="{StaticResource EditIconGeometry}" Width="15" Height="15"
+                                                                  Foreground="#55B8FF" />
+                                                    </Button>
+                                                    <Button Grid.Column="3" Classes="action-icon note-icon"
+                                                            ToolTip.Tip="Edit note"
+                                                            Command="{Binding $parent[UserControl].((vm:MatchAnalysisViewModel)DataContext).OpenNoteCommand}"
+                                                            CommandParameter="{Binding}">
+                                                        <PathIcon Data="{StaticResource NoteIconGeometry}" Width="15" Height="15"
+                                                                  Foreground="#B69CFF" />
+                                                    </Button>
+                                                    <Button Grid.Column="4" Classes="action-icon delete-icon"
+                                                            ToolTip.Tip="Delete action"
+                                                            Command="{Binding $parent[UserControl].((vm:MatchAnalysisViewModel)DataContext).DeleteEntryCommand}"
+                                                            CommandParameter="{Binding}">
+                                                        <PathIcon Data="{StaticResource DeleteIconGeometry}" Width="15" Height="15"
+                                                                  Foreground="#F07178" />
+                                                    </Button>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <TextBlock Text="No actions match these filters."
+                                       IsVisible="{Binding !HasFilteredActions}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       FontSize="12" FontWeight="SemiBold"
+                                       Foreground="#B8C6D9" />
                         </Grid>
                     </Grid>
                     </Grid>

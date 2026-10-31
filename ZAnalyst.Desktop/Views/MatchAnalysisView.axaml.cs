@@ -148,8 +148,18 @@ public partial class MatchAnalysisView : UserControl
 
         if (_mediaPlayer.IsPlaying)
             _mediaPlayer.Pause();
-        else if (!_mediaPlayer.Play())
-            _viewModel.ReportVideoError(new InvalidOperationException("The video player could not resume playback."));
+        else
+        {
+            if (_viewModel.IsClipTab &&
+                _viewModel.SelectedActionClip is { } clip &&
+                _viewModel.PlaybackPositionSeconds >= clip.EndSeconds)
+            {
+                _viewModel.PlaybackPositionSeconds = clip.StartSeconds;
+            }
+
+            if (!_mediaPlayer.Play())
+                _viewModel.ReportVideoError(new InvalidOperationException("The video player could not resume playback."));
+        }
 
         UpdatePlaybackState(this, EventArgs.Empty);
     }
@@ -159,8 +169,19 @@ public partial class MatchAnalysisView : UserControl
         if (_mediaPlayer is null || _viewModel is null)
             return;
 
+        var positionSeconds = _mediaPlayer.Time / 1000d;
+        if (_mediaPlayer.IsPlaying && _viewModel.IsSelectedClipPlaybackComplete(positionSeconds))
+        {
+            _mediaPlayer.Pause();
+            if (_viewModel.SelectedClipEndSeconds is { } clipEnd)
+            {
+                _mediaPlayer.Time = (long)(clipEnd * 1000);
+                positionSeconds = clipEnd;
+            }
+        }
+
         _viewModel.UpdatePlaybackState(
-            _mediaPlayer.Time / 1000d,
+            positionSeconds,
             GetDurationSeconds(),
             _mediaPlayer.IsPlaying);
     }

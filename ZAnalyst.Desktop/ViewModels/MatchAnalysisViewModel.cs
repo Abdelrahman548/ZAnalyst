@@ -15,6 +15,8 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
 {
     public const double ManualTimelineDurationSeconds = 10800;
     public const double TimelineTrackWidth = 640;
+    private static readonly Geometry PlayGeometry = Geometry.Parse("M6 3L20 12L6 21Z");
+    private static readonly Geometry PauseGeometry = Geometry.Parse("M5 4H10V20H5ZM14 4H19V20H14Z");
 
     private readonly IEventService _eventService;
     private readonly IActionService _actionService;
@@ -25,6 +27,7 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
     private PlayerFilterOptionViewModel? _selectedActionPlayerFilter;
     private ButtonFilterOptionViewModel? _selectedActionButtonFilter;
     private ActionRate? _actionRateFilter;
+    private AnalysisEntryViewModel? _selectedActionClip;
     private string? _errorMessage;
     private bool _isBusy;
     private bool _isPlaying;
@@ -98,6 +101,12 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
         }, _ => !IsBusy);
         SelectEventsTabCommand = new RelayCommand(_ => SelectedTabIndex = 0, _ => !IsBusy);
         SelectActionsTabCommand = new RelayCommand(_ => SelectedTabIndex = 1, _ => !IsBusy);
+        SelectClipsTabCommand = new RelayCommand(_ => SelectedTabIndex = 2, _ => !IsBusy);
+        SelectActionClipCommand = new RelayCommand(parameter =>
+        {
+            if (parameter is AnalysisEntryViewModel entry)
+                SelectedActionClip = entry;
+        }, parameter => parameter is AnalysisEntryViewModel { IsAction: true });
         SetActionRateCommand = new AsyncCommand(SetActionRateAsync, parameter => !IsBusy && parameter is ActionRateOptionViewModel);
         OpenNoteCommand = new RelayCommand(parameter => OpenNoteDialog(parameter as AnalysisEntryViewModel),
             parameter => !IsBusy && parameter is AnalysisEntryViewModel { IsAction: true });
@@ -180,7 +189,7 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
 
     public bool TryRecordHotkey(string hotkey)
     {
-        if (IsBusy || !HasMatch || IsAnyDialogOpen || string.IsNullOrWhiteSpace(hotkey))
+        if (IsBusy || !HasMatch || IsAnyDialogOpen || IsClipTab || string.IsNullOrWhiteSpace(hotkey))
             return false;
 
         var normalizedHotkey = NormalizeHotkey(hotkey);
@@ -234,6 +243,8 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
     public ICommand ClearActionFiltersCommand { get; }
     public ICommand SelectEventsTabCommand { get; }
     public ICommand SelectActionsTabCommand { get; }
+    public ICommand SelectClipsTabCommand { get; }
+    public ICommand SelectActionClipCommand { get; }
     public ICommand SetActionRateCommand { get; }
     public ICommand OpenNoteCommand { get; }
     public ICommand SaveNoteCommand { get; }
@@ -320,6 +331,47 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
         (SelectedActionPlayerFilter?.Player is not null) ||
         (SelectedActionButtonFilter?.Button is not null) ||
         ActionRateFilter is not null;
+    public AnalysisEntryViewModel? SelectedActionClip
+    {
+        get => _selectedActionClip;
+        private set
+        {
+            if (ReferenceEquals(_selectedActionClip, value))
+                return;
+
+            if (_selectedActionClip is not null)
+                _selectedActionClip.IsSelectedClip = false;
+            if (!SetProperty(ref _selectedActionClip, value))
+                return;
+
+            if (_selectedActionClip is not null)
+                _selectedActionClip.IsSelectedClip = true;
+            OnPropertyChanged(nameof(ClipStartSeconds));
+            OnPropertyChanged(nameof(ClipEndSeconds));
+            OnPropertyChanged(nameof(ClipDurationText));
+            OnPropertyChanged(nameof(PlaybackSliderMinimum));
+            OnPropertyChanged(nameof(PlaybackSliderMaximum));
+            OnPropertyChanged(nameof(PlaybackRangeText));
+            OnPropertyChanged(nameof(IsPlaybackSliderEnabled));
+            PlaybackPositionSeconds = _selectedActionClip?.StartSeconds ?? PlaybackPositionSeconds;
+        }
+    }
+
+    public bool IsClipTab => SelectedTabIndex == 2;
+    public bool IsActionOrClipTab => IsActionTab || IsClipTab;
+    public bool IsPlaybackSliderEnabled => HasMatch && (!IsClipTab || SelectedActionClip is not null);
+    public double ClipStartSeconds => SelectedActionClip?.StartSeconds ?? 0;
+    public double ClipEndSeconds => SelectedActionClip?.EndSeconds ?? PlaybackDurationSeconds;
+    public string ClipDurationText => SelectedActionClip is null
+        ? "Select an action to view its clip"
+        : $"{FormatClock(SelectedActionClip.StartSeconds)} – {FormatClock(SelectedActionClip.EndSeconds)}";
+    public string PlaybackRangeText => IsClipTab ? ClipDurationText : DurationText;
+    public double PlaybackSliderMinimum => IsClipTab && SelectedActionClip is not null
+        ? SelectedActionClip.StartSeconds
+        : 0;
+    public double PlaybackSliderMaximum => IsClipTab && SelectedActionClip is not null
+        ? Math.Max(SelectedActionClip.StartSeconds, SelectedActionClip.EndSeconds)
+        : PlaybackDurationSeconds;
 
     public AnalysisEntryViewModel? EditingEntry
     {
@@ -425,6 +477,7 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
     public string CurrentTimeText => FormatClock(PlaybackPositionSeconds);
     public string DurationText => FormatClock(PlaybackDurationSeconds);
     public string PlaybackButtonText => IsPlaying ? "Pause" : "Play";
+    public Geometry PlaybackIconGeometry => IsPlaying ? PauseGeometry : PlayGeometry;
     public string PendingPressText => _pendingDoublePressButton is null
         ? string.Empty
         : $"First press recorded for {_pendingDoublePressButton.Name}. Press it again to set the end.";
@@ -436,7 +489,8 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
         get => _playbackPositionSeconds;
         set
         {
-            var boundedPosition = Math.Clamp(value, 0, PlaybackDurationSeconds > 0 ? PlaybackDurationSeconds : double.MaxValue);
+            var boundedPosition = Math.Clamp(value, PlaybackSliderMinimum,
+                PlaybackSliderMaximum > 0 ? PlaybackSliderMaximum : double.MaxValue);
             if (SetProperty(ref _playbackPositionSeconds, boundedPosition))
             {
                 OnPropertyChanged(nameof(CurrentTimeText));
@@ -453,6 +507,10 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
             if (SetProperty(ref _playbackDurationSeconds, value))
             {
                 OnPropertyChanged(nameof(DurationText));
+                OnPropertyChanged(nameof(PlaybackRangeText));
+                OnPropertyChanged(nameof(PlaybackSliderMaximum));
+                OnPropertyChanged(nameof(IsPlaybackSliderEnabled));
+                OnPropertyChanged(nameof(ClipEndSeconds));
                 RefreshTimelineLanes();
             }
         }
@@ -468,6 +526,13 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
                 ClearPendingPress();
                 OnPropertyChanged(nameof(IsActionTab));
                 OnPropertyChanged(nameof(IsEventsTab));
+                OnPropertyChanged(nameof(IsClipTab));
+                OnPropertyChanged(nameof(PlaybackRangeText));
+                OnPropertyChanged(nameof(IsActionOrClipTab));
+                OnPropertyChanged(nameof(PlaybackSliderMinimum));
+                OnPropertyChanged(nameof(PlaybackSliderMaximum));
+                PlaybackPositionSeconds = _playbackPositionSeconds;
+                OnPropertyChanged(nameof(IsPlaybackSliderEnabled));
                 NotifyCommands();
             }
         }
@@ -479,7 +544,10 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
         private set
         {
             if (SetProperty(ref _isPlaying, value))
+            {
                 OnPropertyChanged(nameof(PlaybackButtonText));
+                OnPropertyChanged(nameof(PlaybackIconGeometry));
+            }
         }
     }
 
@@ -519,6 +587,7 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
                 ? ManualTimelineDurationSeconds
                 : 0;
             ClearPendingPress();
+            SelectedActionClip = null;
             EventEntries.Clear();
             ActionEntries.Clear();
             FilteredActionEntries.Clear();
@@ -583,12 +652,18 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
     public void UpdatePlaybackState(double positionSeconds, double durationSeconds, bool isPlaying)
     {
         PlaybackDurationSeconds = Math.Max(0, durationSeconds);
-        _playbackPositionSeconds = Math.Clamp(positionSeconds, 0,
-            PlaybackDurationSeconds > 0 ? PlaybackDurationSeconds : double.MaxValue);
+        var maximum = PlaybackSliderMaximum > 0 ? PlaybackSliderMaximum : double.MaxValue;
+        _playbackPositionSeconds = Math.Clamp(positionSeconds, PlaybackSliderMinimum, maximum);
         OnPropertyChanged(nameof(PlaybackPositionSeconds));
         OnPropertyChanged(nameof(CurrentTimeText));
         IsPlaying = isPlaying;
     }
+
+    public bool IsSelectedClipPlaybackComplete(double positionSeconds) =>
+        IsClipTab && SelectedActionClip is not null &&
+        positionSeconds >= SelectedActionClip.EndSeconds;
+
+    public double? SelectedClipEndSeconds => IsClipTab ? SelectedActionClip?.EndSeconds : null;
 
     public void ReportVideoError(Exception exception)
     {
@@ -740,7 +815,10 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
             else if (entry.Action is not null)
             {
                 ActionEntries.Remove(entry);
-                InsertByStartTime(ActionEntries, AnalysisEntryViewModel.FromAction(entry.Action, entry.Button, EditPlayer));
+                var updatedEntry = AnalysisEntryViewModel.FromAction(entry.Action, entry.Button, EditPlayer);
+                if (SelectedActionClip == entry)
+                    SelectedActionClip = updatedEntry;
+                InsertByStartTime(ActionEntries, updatedEntry);
                 RefreshFilteredActionEntries();
             }
             CloseEditDialog();
@@ -775,6 +853,8 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
             {
                 await _actionService.RemoveAsync(entry.Action.Id);
                 ActionEntries.Remove(entry);
+                if (SelectedActionClip == entry)
+                    SelectedActionClip = null;
                 RefreshFilteredActionEntries();
                 OnPropertyChanged(nameof(HasActions));
             }
@@ -799,15 +879,18 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
     {
         var playerId = SelectedActionPlayerFilter?.Player?.Id;
         var buttonId = SelectedActionButtonFilter?.Button?.Id;
+        var matches = ActionEntries.Where(entry =>
+                (playerId is null || entry.Player?.Id == playerId) &&
+                (buttonId is null || entry.Button?.Id == buttonId) &&
+                (ActionRateFilter is null || entry.Rate == ActionRateFilter))
+            .ToArray();
 
         FilteredActionEntries.Clear();
-        foreach (var entry in ActionEntries.Where(entry =>
-                     (playerId is null || entry.Player?.Id == playerId) &&
-                     (buttonId is null || entry.Button?.Id == buttonId) &&
-                     (ActionRateFilter is null || entry.Rate == ActionRateFilter)))
-        {
+        foreach (var entry in matches)
             FilteredActionEntries.Add(entry);
-        }
+
+        if (SelectedActionClip is not null && !matches.Contains(SelectedActionClip))
+            SelectedActionClip = null;
 
         OnPropertyChanged(nameof(HasFilteredActions));
         OnPropertyChanged(nameof(FilteredActionCount));
@@ -913,7 +996,8 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
             SelectEventsTabCommand, SelectActionsTabCommand, SetActionRateCommand,
             OpenNoteCommand, SaveNoteCommand, DiscardNoteCommand,
             SelectActionPlayerFilterCommand, SelectActionButtonFilterCommand,
-            ToggleActionRateFilterCommand, ClearActionFiltersCommand
+            ToggleActionRateFilterCommand, ClearActionFiltersCommand,
+            SelectClipsTabCommand, SelectActionClipCommand
         })
         {
             if (command is AsyncCommand asyncCommand)
@@ -1012,6 +1096,18 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
         public string TimeRange => $"{FormatEditableTime(StartSeconds)} – {FormatEditableTime(EndSeconds)}";
         public string PlayerLabel => Player is null ? "Player not available" : $"#{Player.Number} {Player.Name}";
         public bool IsAction => Action is not null;
+        private bool _isSelectedClip;
+        public bool IsSelectedClip
+        {
+            get => _isSelectedClip;
+            set
+            {
+                if (_isSelectedClip == value)
+                    return;
+                _isSelectedClip = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelectedClip)));
+            }
+        }
         public bool HasNote => !string.IsNullOrWhiteSpace(Note);
         public string? NoteDisplay => HasNote ? Note : "No note";
         public double TimelineLeft { get; private set; }
@@ -1054,15 +1150,36 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
         AnalysisEntryViewModel entry,
         ActionRate rate) : INotifyPropertyChanged
     {
+        private static readonly Geometry PerfectGeometry =
+            Geometry.Parse("M12 2L15.1 8.3L22 9.3L17 14.2L18.2 21L12 17.7L5.8 21L7 14.2L2 9.3L8.9 8.3Z");
+        private static readonly Geometry LikeGeometry =
+            Geometry.Parse("M7 10V21H3V10H7ZM10 10L14 3C15.7 3 16.8 4.5 16.3 6.1L15.2 10H19C20.3 10 21.2 11.2 20.8 12.4L18.7 19.4C18.4 20.3 17.6 21 16.6 21H9C7.9 21 7 20.1 7 19V12C7 11.4 7.3 10.8 7.7 10.4L10 10Z");
+        private static readonly Geometry DislikeGeometry =
+            Geometry.Parse("M17 14V3H21V14H17ZM14 14L10 21C8.3 21 7.2 19.5 7.7 17.9L8.8 14H5C3.7 14 2.8 12.8 3.2 11.6L5.3 4.6C5.6 3.7 6.4 3 7.4 3H15C16.1 3 17 3.9 17 5V12C17 12.6 16.7 13.2 16.3 13.6L14 14Z");
+
         public event PropertyChangedEventHandler? PropertyChanged;
         public AnalysisEntryViewModel Entry { get; } = entry ?? throw new ArgumentNullException(nameof(entry));
         public ActionRate Rate { get; } = rate;
-        public string Glyph => Rate switch
+        public Geometry IconGeometry => Rate switch
         {
-            ActionRate.Good => "✓",
-            ActionRate.Natural => "•",
-            ActionRate.Bad => "×",
-            _ => string.Empty
+            ActionRate.Good => PerfectGeometry,
+            ActionRate.Natural => LikeGeometry,
+            ActionRate.Bad => DislikeGeometry,
+            _ => Geometry.Parse("M0 0")
+        };
+        public string Label => Rate switch
+        {
+            ActionRate.Good => "Perfect",
+            ActionRate.Natural => "Like",
+            ActionRate.Bad => "Dislike",
+            _ => Rate.ToString()
+        };
+        public string FilterLabel => Rate switch
+        {
+            ActionRate.Good => "Perfect",
+            ActionRate.Natural => "Like",
+            ActionRate.Bad => "Dislike",
+            _ => Rate.ToString()
         };
         public IBrush IconBrush => Rate switch
         {
