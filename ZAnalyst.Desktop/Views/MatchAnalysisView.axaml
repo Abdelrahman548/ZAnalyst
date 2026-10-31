@@ -7,9 +7,12 @@
              x:Class="ZAnalyst.Desktop.Views.MatchAnalysisView"
              x:DataType="vm:MatchAnalysisViewModel">
     <Grid RowDefinitions="Auto,*,Auto" RowSpacing="16">
-        <Grid ColumnDefinitions="*,Auto">
-            <controls:PageHeading Title="{Binding MatchTitle}" Description="Match analysis" />
-            <TextBlock Grid.Column="1" Text="{Binding CurrentTimeText}"
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+            <Button Content="‹  Back" Command="{Binding BackCommand}"
+                    IsEnabled="{Binding IsNotBusy}" VerticalAlignment="Center" />
+            <controls:PageHeading Grid.Column="1" Title="{Binding MatchTitle}"
+                                  Description="Match analysis" />
+            <TextBlock Grid.Column="2" Text="{Binding CurrentTimeText}"
                        FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"
                        Foreground="{DynamicResource AccentBrush}" />
         </Grid>

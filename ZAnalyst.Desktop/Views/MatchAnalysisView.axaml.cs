@@ -66,6 +66,14 @@ public partial class MatchAnalysisView : UserControl
             _mediaPlayer?.Time / 1000d ?? 0,
             GetDurationSeconds(),
             isPlaying: false);
+        VideoView.MediaPlayer = null;
+        _media?.Dispose();
+        _media = null;
+        _mediaPlayer?.Dispose();
+        _mediaPlayer = null;
+        _libVlc?.Dispose();
+        _libVlc = null;
+        _loadedVideoPath = null;
     }
 
     private void HandleViewModelPropertyChanged(object? sender, PropertyChangedEventArgs eventArgs)

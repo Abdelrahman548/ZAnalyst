@@ -15,6 +15,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     private readonly TeamsViewModel _teamsViewModel;
     private readonly TemplatesViewModel _templatesViewModel;
     private readonly MatchesViewModel _matchesViewModel;
+    private readonly MatchAnalysisViewModel _matchAnalysisViewModel;
 
     public ShellViewModel(
         ITeamService teamService,
@@ -28,9 +29,9 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         _teamsViewModel = new TeamsViewModel(teamService, playerService);
         _templatesViewModel = new TemplatesViewModel(templateService, buttonService);
         _matchesViewModel = new MatchesViewModel(matchService, teamService, templateService);
-        var matchAnalysisViewModel = new MatchAnalysisViewModel(
+        _matchAnalysisViewModel = new MatchAnalysisViewModel(
             eventService, actionService, buttonService, teamService);
-        _matchesViewModel.MatchSelected += match => _ = OpenMatchAnalysisAsync(match, matchAnalysisViewModel);
+        _matchesViewModel.MatchSelected += OpenMatchAnalysis;
         NavigateCommand = new RelayCommand(parameter =>
         {
             if (parameter is NavigationItemViewModel item)
@@ -40,9 +41,8 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         NavigationItems =
         [
             CreateNavigationItem("Matches", "01", _matchesViewModel),
-            CreateNavigationItem("Match analysis", "02", matchAnalysisViewModel),
-            CreateNavigationItem("Teams & players", "03", _teamsViewModel),
-            CreateNavigationItem("Templates", "04", _templatesViewModel)
+            CreateNavigationItem("Teams & players", "02", _teamsViewModel),
+            CreateNavigationItem("Templates", "03", _templatesViewModel)
         ];
 
         _currentPage = NavigationItems[0].Page;
@@ -50,6 +50,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+    public event Action<MatchAnalysisViewModel>? MatchAnalysisWindowRequested;
 
     public ObservableCollection<NavigationItemViewModel> NavigationItems { get; }
 
@@ -95,15 +96,10 @@ public sealed class ShellViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(NavigationItems));
     }
 
-    private async Task OpenMatchAnalysisAsync(Match match, MatchAnalysisViewModel viewModel)
+    private async void OpenMatchAnalysis(Match match)
     {
-        await viewModel.LoadMatchAsync(match);
-        var analysisNavigationItem = NavigationItems.First(item => ReferenceEquals(item.Page, viewModel));
-        foreach (var item in NavigationItems)
-            item.IsSelected = ReferenceEquals(item, analysisNavigationItem);
-
-        CurrentPage = viewModel;
-        OnPropertyChanged(nameof(NavigationItems));
+        await _matchAnalysisViewModel.LoadMatchAsync(match);
+        MatchAnalysisWindowRequested?.Invoke(_matchAnalysisViewModel);
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>

@@ -65,11 +65,13 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
                 PlaybackPositionSeconds = entry.StartSeconds;
         }, parameter => parameter is AnalysisEntryViewModel);
         TogglePlaybackCommand = new RelayCommand(_ => TogglePlaybackRequested?.Invoke(), _ => HasVideo);
+        BackCommand = new RelayCommand(_ => BackRequested?.Invoke(), _ => !IsBusy);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
     public event System.Action<double>? SeekRequested;
     public event System.Action? TogglePlaybackRequested;
+    public event System.Action? BackRequested;
 
     public ObservableCollection<Button> EventButtons { get; } = [];
     public ObservableCollection<Button> ActionButtons { get; } = [];
@@ -87,6 +89,7 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
     public ICommand CancelDeleteEntryCommand { get; }
     public ICommand SeekToEntryCommand { get; }
     public ICommand TogglePlaybackCommand { get; }
+    public ICommand BackCommand { get; }
 
     public Match? SelectedMatch
     {
@@ -585,7 +588,7 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
         {
             RecordButtonCommand, EditEntryCommand, SaveEntryCommand, DiscardEditCommand,
             RequestDeleteEntryCommand, ConfirmDeleteEntryCommand, CancelDeleteEntryCommand,
-            SeekToEntryCommand, TogglePlaybackCommand
+            SeekToEntryCommand, TogglePlaybackCommand, BackCommand
         })
         {
             if (command is AsyncCommand asyncCommand)

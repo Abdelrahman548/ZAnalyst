@@ -32,6 +32,7 @@ public partial class App : Avalonia.Application
                 $"Data Source={Path.Combine(dataDirectory, "zanalyst.db")}");
             services.AddScoped<ShellViewModel>();
             services.AddScoped<MainWindow>();
+            services.AddTransient<MatchAnalysisWindow>();
 
             _serviceProvider = services.BuildServiceProvider();
             desktop.Exit += async (_, _) =>
