@@ -1,205 +1,156 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:ZAnalyst.Desktop.Controls"
+             xmlns:converters="using:ZAnalyst.Desktop.Converters"
              xmlns:vm="using:ZAnalyst.Desktop.ViewModels"
              xmlns:domain="using:ZAnalyst.Domain.Entities"
              x:Class="ZAnalyst.Desktop.Views.TemplatesView"
              x:DataType="vm:TemplatesViewModel">
-    <Grid RowDefinitions="Auto,*,Auto" RowSpacing="16">
-        <Grid ColumnDefinitions="*,Auto">
+    <UserControl.Resources>
+        <converters:DrawingColorToBrushConverter x:Key="DrawingColorToBrushConverter" />
+    </UserControl.Resources>
+    <Grid RowDefinitions="Auto,*,Auto" RowSpacing="20">
+        <StackPanel Spacing="16" HorizontalAlignment="Center">
             <controls:PageHeading Title="{Binding Title}" Description="{Binding Description}" />
-            <Button Grid.Column="1" Content="Refresh" Command="{Binding RefreshCommand}"
-                    IsEnabled="{Binding IsNotBusy}" VerticalAlignment="Center" />
-        </Grid>
+            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+                <ComboBox Width="320" ItemsSource="{Binding Templates}"
+                          SelectedItem="{Binding SelectedTemplate, Mode=TwoWay}"
+                          IsEnabled="{Binding IsNotBusy}"
+                          PlaceholderText="Choose a template">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="domain:Template">
+                            <TextBlock Text="{Binding Name}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <Button Width="40" Height="40" Padding="9"
+                        ToolTip.Tip="Add template"
+                        Command="{Binding OpenCreateTemplateCommand}"
+                        IsEnabled="{Binding IsNotBusy}">
+                    <PathIcon Data="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                </Button>
+                <Button Width="40" Height="40" Padding="9"
+                        ToolTip.Tip="Delete selected template"
+                        Command="{Binding DeleteTemplateCommand}"
+                        IsEnabled="{Binding HasSelectedTemplate}">
+                    <PathIcon Foreground="{DynamicResource ErrorBrush}"
+                              Data="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+                </Button>
+            </StackPanel>
+        </StackPanel>
 
-        <Grid Grid.Row="1" ColumnDefinitions="320,*" ColumnSpacing="16">
-            <Border Classes="surface-card" Padding="18">
-                <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="12">
+        <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="18">
+            <Border Classes="surface-card" Padding="20">
+                <Grid RowDefinitions="Auto,*" RowSpacing="16">
                     <Grid ColumnDefinitions="*,Auto">
                         <StackPanel Spacing="4">
-                            <TextBlock Text="TEMPLATES" FontSize="11" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource SecondaryTextBrush}" />
-                            <TextBlock Text="Reusable match setups" FontSize="12"
-                                       Foreground="{DynamicResource MutedTextBrush}" />
-                        </StackPanel>
-                        <Border Grid.Column="1" Background="{DynamicResource AppBackgroundBrush}"
-                                CornerRadius="14" Padding="10,5" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding Templates.Count}" FontSize="11"
-                                       Foreground="{DynamicResource SecondaryTextBrush}" />
-                        </Border>
-                    </Grid>
-
-                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                        <TextBox Text="{Binding NewTemplateName}" PlaceholderText="New template name"
-                                 IsEnabled="{Binding IsNotBusy}" />
-                        <Button Grid.Column="1" Classes="primary-button" Content="Add"
-                                Command="{Binding CreateTemplateCommand}" />
-                    </Grid>
-
-                    <TextBlock Grid.Row="2" Text="Select a template to manage its buttons."
-                               FontSize="12" TextWrapping="Wrap"
-                               Foreground="{DynamicResource MutedTextBrush}" />
-
-                    <Grid Grid.Row="3">
-                        <ListBox ItemsSource="{Binding Templates}"
-                                 SelectedItem="{Binding SelectedTemplate, Mode=TwoWay}"
-                                 IsEnabled="{Binding IsNotBusy}"
-                                 Background="Transparent" BorderThickness="0" Padding="0">
-                            <ListBox.Styles>
-                                <Style Selector="ListBoxItem">
-                                    <Setter Property="Padding" Value="0" />
-                                    <Setter Property="Background" Value="Transparent" />
-                                    <Setter Property="CornerRadius" Value="8" />
-                                </Style>
-                                <Style Selector="ListBoxItem:pointerover">
-                                    <Setter Property="Background" Value="{DynamicResource HoverSurfaceBrush}" />
-                                </Style>
-                                <Style Selector="ListBoxItem:selected">
-                                    <Setter Property="Background" Value="{DynamicResource SelectedSurfaceBrush}" />
-                                </Style>
-                            </ListBox.Styles>
-                            <ListBox.ItemTemplate>
-                                <DataTemplate x:DataType="domain:Template">
-                                    <Border Padding="12" Margin="0,0,0,5" CornerRadius="8">
-                                        <TextBlock Text="{Binding Name}" FontSize="13"
-                                                   Foreground="{DynamicResource PrimaryTextBrush}" />
-                                    </Border>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                        <StackPanel IsVisible="{Binding HasNoTemplates}"
-                                    HorizontalAlignment="Center" VerticalAlignment="Center"
-                                    Spacing="7" MaxWidth="220">
-                            <TextBlock Text="No templates yet" FontSize="14" FontWeight="SemiBold"
-                                       TextAlignment="Center"
+                            <TextBlock Text="EVENTS" FontSize="13" FontWeight="SemiBold"
                                        Foreground="{DynamicResource PrimaryTextBrush}" />
-                            <TextBlock Text="Add a template to define buttons for match analysis."
-                                       FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
-                                       Foreground="{DynamicResource MutedTextBrush}" />
+                            <TextBlock Text="{Binding EventButtonCount} event buttons"
+                                       FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
                         </StackPanel>
+                        <Button Grid.Column="1" Width="36" Height="36" Padding="8"
+                                ToolTip.Tip="Add event button"
+                                Command="{Binding OpenEventButtonCommand}"
+                                IsEnabled="{Binding HasSelectedTemplate}">
+                            <PathIcon Data="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                        </Button>
                     </Grid>
-
-                    <Grid Grid.Row="4" ColumnDefinitions="*,Auto" ColumnSpacing="8"
-                          IsVisible="{Binding HasSelectedTemplate}">
-                        <TextBox Text="{Binding EditTemplateName}" PlaceholderText="Template name"
-                                 IsEnabled="{Binding IsNotBusy}" />
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                            <Button Content="Save" Command="{Binding UpdateTemplateCommand}" />
-                            <Button Content="Delete" Command="{Binding DeleteTemplateCommand}" />
-                        </StackPanel>
+                    <Grid Grid.Row="1">
+                        <ScrollViewer>
+                            <ItemsControl ItemsSource="{Binding EventButtons}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="domain:Button">
+                                        <Button Width="176" Height="74" Margin="0,0,10,10"
+                                                Padding="0" Background="Transparent" BorderThickness="0"
+                                                Command="{Binding $parent[UserControl].((vm:TemplatesViewModel)DataContext).SelectButtonCommand}"
+                                                CommandParameter="{Binding}">
+                                            <Border Background="{DynamicResource AppBackgroundBrush}"
+                                                    BorderBrush="{DynamicResource BorderBrush}"
+                                                    BorderThickness="1" CornerRadius="9" Padding="12">
+                                                <Grid ColumnDefinitions="5,*" ColumnSpacing="10">
+                                                    <Border Background="{Binding Color, Converter={StaticResource DrawingColorToBrushConverter}}"
+                                                            CornerRadius="3" />
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+                                                        <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
+                                                                   Foreground="{DynamicResource PrimaryTextBrush}" />
+                                                        <TextBlock Text="{Binding Mode}" FontSize="10"
+                                                                   Foreground="{DynamicResource MutedTextBrush}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                        <TextBlock Text="Choose a template to see its events."
+                                   IsVisible="{Binding HasNoEventButtons}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource MutedTextBrush}" />
                     </Grid>
                 </Grid>
             </Border>
 
             <Border Grid.Column="1" Classes="surface-card" Padding="20">
-                <Grid RowDefinitions="Auto,*,Auto" RowSpacing="14">
+                <Grid RowDefinitions="Auto,*" RowSpacing="16">
                     <Grid ColumnDefinitions="*,Auto">
                         <StackPanel Spacing="4">
-                            <TextBlock Text="BUTTON SETUP" FontSize="11" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource SecondaryTextBrush}" />
-                            <TextBlock Text="{Binding SelectedTemplate.Name}" FontSize="18" FontWeight="SemiBold"
+                            <TextBlock Text="ACTIONS" FontSize="13" FontWeight="SemiBold"
                                        Foreground="{DynamicResource PrimaryTextBrush}" />
+                            <TextBlock Text="{Binding ActionButtonCount} action buttons"
+                                       FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
                         </StackPanel>
-                        <Button Grid.Column="1" Content="New button" Command="{Binding NewButtonCommand}"
-                                IsEnabled="{Binding HasSelectedTemplate}" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Width="36" Height="36" Padding="8"
+                                ToolTip.Tip="Add action button"
+                                Command="{Binding OpenActionButtonCommand}"
+                                IsEnabled="{Binding HasSelectedTemplate}">
+                            <PathIcon Data="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                        </Button>
                     </Grid>
-
-                    <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="16">
-                        <Border Background="{DynamicResource AppBackgroundBrush}" CornerRadius="8" Padding="14">
-                            <Grid RowDefinitions="Auto,*" RowSpacing="10">
-                                <TextBlock Text="BUTTONS" FontSize="11" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource SecondaryTextBrush}" />
-                                <Grid Grid.Row="1">
-                                    <ScrollViewer>
-                                        <ItemsControl ItemsSource="{Binding Buttons}">
-                                            <ItemsControl.ItemTemplate>
-                                                <DataTemplate x:DataType="domain:Button">
-                                                    <Button Command="{Binding $parent[UserControl].((vm:TemplatesViewModel)DataContext).SelectButtonCommand}"
-                                                            CommandParameter="{Binding}"
-                                                            Background="Transparent" BorderThickness="0"
-                                                            HorizontalContentAlignment="Stretch"
-                                                            Padding="0" Margin="0,0,0,6">
-                                                        <Border Padding="10" CornerRadius="7"
-                                                                Background="{DynamicResource CardBackgroundBrush}">
-                                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="9">
-                                                                <StackPanel Spacing="3">
-                                                                    <TextBlock Text="{Binding Name}" FontSize="13"
-                                                                               Foreground="{DynamicResource PrimaryTextBrush}" />
-                                                                    <TextBlock Text="{Binding Type}" FontSize="11"
-                                                                               Foreground="{DynamicResource MutedTextBrush}" />
-                                                                </StackPanel>
-                                                                <TextBlock Grid.Column="1" Text="ARCHIVED" FontSize="9"
-                                                                           VerticalAlignment="Center"
-                                                                           Foreground="{DynamicResource WarningBrush}"
-                                                                           IsVisible="{Binding Archived}" />
-                                                            </Grid>
-                                                        </Border>
-                                                    </Button>
-                                                </DataTemplate>
-                                            </ItemsControl.ItemTemplate>
-                                        </ItemsControl>
-                                    </ScrollViewer>
-                                    <TextBlock Text="No buttons in this template yet."
-                                               IsVisible="{Binding HasNoButtons}"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                                               TextWrapping="Wrap" TextAlignment="Center"
-                                               Foreground="{DynamicResource MutedTextBrush}" />
-                                </Grid>
-                            </Grid>
-                        </Border>
-
-                        <Border Grid.Column="1" Background="{DynamicResource AppBackgroundBrush}"
-                                CornerRadius="8" Padding="14">
-                            <ScrollViewer>
-                                <StackPanel Spacing="10" IsEnabled="{Binding IsNotBusy}">
-                                    <TextBlock Text="BUTTON DETAILS" FontSize="11" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource SecondaryTextBrush}" />
-                                    <TextBox Text="{Binding ButtonName}" PlaceholderText="Button name" />
-                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                                        <ComboBox ItemsSource="{Binding ButtonTypes}" SelectedItem="{Binding SelectedButtonType}"
-                                                  PlaceholderText="Button type" />
-                                        <ComboBox Grid.Column="1" ItemsSource="{Binding PressModes}"
-                                                  SelectedItem="{Binding SelectedPressMode}" PlaceholderText="Press mode" />
-                                    </Grid>
-                                    <TextBox Text="{Binding ButtonColor}" PlaceholderText="Color (#RRGGBB)" />
-                                    <TextBox Text="{Binding Hotkey}" PlaceholderText="Hotkey (optional)" />
-                                    <TextBox Text="{Binding Note}" PlaceholderText="Note (optional)" />
-                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8"
-                                          IsVisible="{Binding IsSinglePressMode}">
-                                        <TextBox Text="{Binding PreSeconds}" PlaceholderText="Seconds before press" />
-                                        <TextBox Grid.Column="1" Text="{Binding PostSeconds}" PlaceholderText="Seconds after press" />
-                                    </Grid>
-                                    <TextBlock Text="First press marks the segment start; second press marks its end."
-                                               IsVisible="{Binding IsDoublePressMode}"
-                                               FontSize="11" TextWrapping="Wrap"
-                                               Foreground="{DynamicResource MutedTextBrush}" />
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <Button Classes="primary-button" Content="Add button"
-                                                Command="{Binding CreateButtonCommand}"
-                                                IsVisible="{Binding IsCreatingButton}"
-                                                IsEnabled="{Binding IsNotBusy}" />
-                                        <Button Classes="primary-button" Content="Save changes"
-                                                Command="{Binding UpdateButtonCommand}"
-                                                IsVisible="{Binding HasSelectedButton}"
-                                                IsEnabled="{Binding IsNotBusy}" />
-                                        <Button Content="Archive" Command="{Binding ArchiveButtonCommand}"
-                                                IsVisible="{Binding HasArchivableSelectedButton}"
-                                                IsEnabled="{Binding IsNotBusy}" />
-                                        <Button Content="Restore" Command="{Binding UnarchiveButtonCommand}"
-                                                IsVisible="{Binding HasArchivedSelectedButton}"
-                                                IsEnabled="{Binding IsNotBusy}" />
-                                        <Button Content="Delete" Command="{Binding DeleteButtonCommand}"
-                                                IsVisible="{Binding HasSelectedButton}"
-                                                IsEnabled="{Binding IsNotBusy}" />
-                                    </StackPanel>
-                                </StackPanel>
-                            </ScrollViewer>
-                        </Border>
+                    <Grid Grid.Row="1">
+                        <ScrollViewer>
+                            <ItemsControl ItemsSource="{Binding ActionButtons}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="domain:Button">
+                                        <Button Width="176" Height="74" Margin="0,0,10,10"
+                                                Padding="0" Background="Transparent" BorderThickness="0"
+                                                Command="{Binding $parent[UserControl].((vm:TemplatesViewModel)DataContext).SelectButtonCommand}"
+                                                CommandParameter="{Binding}">
+                                            <Border Background="{DynamicResource AppBackgroundBrush}"
+                                                    BorderBrush="{DynamicResource BorderBrush}"
+                                                    BorderThickness="1" CornerRadius="9" Padding="12">
+                                                <Grid ColumnDefinitions="5,*" ColumnSpacing="10">
+                                                    <Border Background="{Binding Color, Converter={StaticResource DrawingColorToBrushConverter}}"
+                                                            CornerRadius="3" />
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+                                                        <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
+                                                                   Foreground="{DynamicResource PrimaryTextBrush}" />
+                                                        <TextBlock Text="{Binding Mode}" FontSize="10"
+                                                                   Foreground="{DynamicResource MutedTextBrush}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                        <TextBlock Text="Choose a template to see its actions."
+                                   IsVisible="{Binding HasNoActionButtons}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource MutedTextBrush}" />
                     </Grid>
-
-                    <TextBlock Grid.Row="2" Text="Archived buttons remain available for historical analysis but are excluded from new recordings."
-                               FontSize="11" TextWrapping="Wrap"
-                               Foreground="{DynamicResource MutedTextBrush}" />
                 </Grid>
             </Border>
         </Grid>
@@ -209,5 +160,123 @@
             <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap"
                        Foreground="{DynamicResource ErrorBrush}" />
         </Border>
+
+        <Grid Grid.RowSpan="3" IsVisible="{Binding IsAnyDialogOpen}"
+              Background="#B8000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <Border Width="440" MaxHeight="680" Padding="24"
+                    Classes="surface-card" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Grid>
+                    <StackPanel Spacing="16" IsVisible="{Binding IsTemplateDialogOpen}">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="New template" FontSize="18" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryTextBrush}" />
+                            <TextBlock Text="Create a reusable set of analysis buttons."
+                                       FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                        </StackPanel>
+                        <TextBox Text="{Binding NewTemplateName}" PlaceholderText="Template name"
+                                 IsEnabled="{Binding IsNotBusy}" />
+                        <TextBlock Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"
+                                   TextWrapping="Wrap" Foreground="{DynamicResource ErrorBrush}" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                            <Button Content="Discard" Command="{Binding DiscardTemplateCommand}" />
+                            <Button Classes="primary-button" Content="Create"
+                                    Command="{Binding CreateTemplateCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Spacing="16" IsVisible="{Binding IsDeleteTemplateConfirmationOpen}">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Delete template?" FontSize="18" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryTextBrush}" />
+                            <TextBlock Text="{Binding SelectedTemplate.Name}" FontSize="13"
+                                       Foreground="{DynamicResource AccentBrush}" />
+                            <TextBlock Text="This will also delete its buttons. Templates used by matches or recorded events cannot be deleted."
+                                       TextWrapping="Wrap" FontSize="12"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <TextBlock Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"
+                                       TextWrapping="Wrap" Foreground="{DynamicResource ErrorBrush}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                            <Button Content="Cancel"
+                                    Command="{Binding DiscardTemplateCommand}"
+                                    CommandParameter="delete" />
+                            <Button Content="Delete" Foreground="{DynamicResource ErrorBrush}"
+                                    Command="{Binding ConfirmDeleteTemplateCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <ScrollViewer IsVisible="{Binding IsButtonDialogOpen}" MaxHeight="620">
+                        <StackPanel Spacing="13">
+                            <TextBlock Text="{Binding ButtonDialogTitle}" FontSize="18" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryTextBrush}" />
+                            <TextBox Text="{Binding ButtonName}" PlaceholderText="Button name"
+                                     IsEnabled="{Binding IsButtonEditorEnabled}" />
+                            <ComboBox ItemsSource="{Binding PressModes}" SelectedItem="{Binding SelectedPressMode}"
+                                      IsEnabled="{Binding IsButtonEditorEnabled}" />
+
+                            <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                                <TextBlock Text="Button color" FontSize="12" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource SecondaryTextBrush}" />
+                                <Border Grid.Column="1" Width="28" Height="28" CornerRadius="6"
+                                        Background="{Binding SelectedColorBrush}"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" />
+                            </Grid>
+                            <ItemsControl ItemsSource="{Binding ColorOptions}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Width="30" Height="30" Margin="0,0,8,8"
+                                                Padding="3" Background="Transparent"
+                                                BorderBrush="{DynamicResource BorderBrush}"
+                                                IsEnabled="{Binding $parent[UserControl].((vm:TemplatesViewModel)DataContext).IsButtonEditorEnabled}"
+                                                Command="{Binding $parent[UserControl].((vm:TemplatesViewModel)DataContext).SelectColorCommand}"
+                                                CommandParameter="{Binding Hex}">
+                                            <Border Background="{Binding Brush}" CornerRadius="4" />
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <TextBox Text="{Binding Hotkey}" PlaceholderText="Hotkey (optional)"
+                                     IsEnabled="{Binding IsButtonEditorEnabled}" />
+                            <TextBox Text="{Binding Note}" PlaceholderText="Note (optional)"
+                                     IsEnabled="{Binding IsButtonEditorEnabled}" />
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8"
+                                  IsVisible="{Binding IsSinglePressMode}">
+                                <TextBox Text="{Binding PreSeconds}" PlaceholderText="Seconds before press"
+                                         IsEnabled="{Binding IsButtonEditorEnabled}" />
+                                <TextBox Grid.Column="1" Text="{Binding PostSeconds}" PlaceholderText="Seconds after press"
+                                         IsEnabled="{Binding IsButtonEditorEnabled}" />
+                            </Grid>
+                            <TextBlock Text="First press marks the start; second press marks the end."
+                                       IsVisible="{Binding IsDoublePressMode}" FontSize="11" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource MutedTextBrush}" />
+                            <TextBlock Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"
+                                       TextWrapping="Wrap" Foreground="{DynamicResource ErrorBrush}" />
+
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                                <Button Content="Discard" Command="{Binding DiscardButtonCommand}" />
+                                <Button Content="Archive" Command="{Binding ArchiveButtonCommand}"
+                                        IsVisible="{Binding HasArchivableSelectedButton}"
+                                        IsEnabled="{Binding IsNotBusy}" />
+                                <Button Content="Restore" Command="{Binding UnarchiveButtonCommand}"
+                                        IsVisible="{Binding HasArchivedSelectedButton}"
+                                        IsEnabled="{Binding IsNotBusy}" />
+                                <Button Content="Delete" Command="{Binding DeleteButtonCommand}"
+                                        IsVisible="{Binding HasSelectedButton}"
+                                        IsEnabled="{Binding IsNotBusy}" />
+                                <Button Classes="primary-button" Content="Save"
+                                        Command="{Binding SaveButtonCommand}"
+                                        IsEnabled="{Binding IsNotBusy}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>

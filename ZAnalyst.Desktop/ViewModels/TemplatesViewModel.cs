@@ -4,6 +4,8 @@ using System.Drawing;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using Avalonia.Media;
+using AvaloniaColor = Avalonia.Media.Color;
 using ZAnalyst.Application.Interfaces;
 using ZAnalyst.Domain.Entities;
 using ZAnalyst.Domain.Enums;
@@ -29,6 +31,10 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
     private string? _errorMessage;
     private bool _isBusy;
     private bool _isReloadingTemplates;
+    private bool _isTemplateDialogOpen;
+    private bool _isDeleteTemplateConfirmationOpen;
+    private bool _isButtonDialogOpen;
+    private string _buttonDialogTitle = string.Empty;
 
     public TemplatesViewModel(ITemplateService templateService, IButtonService buttonService)
         : base("Templates", "Configure reusable event and action controls.")
@@ -36,37 +42,125 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
         _templateService = templateService ?? throw new ArgumentNullException(nameof(templateService));
         _buttonService = buttonService ?? throw new ArgumentNullException(nameof(buttonService));
 
+        OpenCreateTemplateCommand = new RelayCommand(_ => OpenTemplateDialog(), _ => !IsBusy);
         CreateTemplateCommand = new AsyncCommand(CreateTemplateAsync, () => !IsBusy && !string.IsNullOrWhiteSpace(NewTemplateName));
         UpdateTemplateCommand = new AsyncCommand(UpdateTemplateAsync, () => !IsBusy && SelectedTemplate is not null && !string.IsNullOrWhiteSpace(EditTemplateName));
-        DeleteTemplateCommand = new AsyncCommand(DeleteTemplateAsync, () => !IsBusy && SelectedTemplate is not null);
+        DeleteTemplateCommand = new RelayCommand(OpenDeleteTemplateConfirmation, _ => !IsBusy && SelectedTemplate is not null);
+        ConfirmDeleteTemplateCommand = new AsyncCommand(DeleteTemplateAsync, () => !IsBusy && SelectedTemplate is not null);
         RefreshCommand = new AsyncCommand(LoadTemplatesAsync, () => !IsBusy);
         CreateButtonCommand = new AsyncCommand(CreateButtonAsync, CanCreateButton);
         UpdateButtonCommand = new AsyncCommand(UpdateButtonAsync, CanUpdateButton);
-        NewButtonCommand = new RelayCommand(_ => SelectedButton = null, _ => !IsBusy && SelectedTemplate is not null);
+        OpenEventButtonCommand = new RelayCommand(_ => OpenButtonDialog(ButtonType.Event), _ => !IsBusy && SelectedTemplate is not null);
+        OpenActionButtonCommand = new RelayCommand(_ => OpenButtonDialog(ButtonType.Action), _ => !IsBusy && SelectedTemplate is not null);
+        SaveButtonCommand = new AsyncCommand(SaveButtonAsync, CanSaveButton);
+        DiscardButtonCommand = new RelayCommand(_ => CloseButtonDialog(), _ => !IsBusy);
+        DiscardTemplateCommand = new RelayCommand(CancelTemplateDialog, _ => !IsBusy);
+        SelectColorCommand = new RelayCommand(PickColor, parameter => parameter is string);
         ArchiveButtonCommand = new AsyncCommand(ArchiveButtonAsync, () => !IsBusy && SelectedButton is { Archived: false });
         UnarchiveButtonCommand = new AsyncCommand(UnarchiveButtonAsync, () => !IsBusy && SelectedButton is { Archived: true });
         DeleteButtonCommand = new AsyncCommand(DeleteButtonAsync, () => !IsBusy && SelectedButton is not null);
-        SelectButtonCommand = new RelayCommand(SelectButton, parameter => parameter is Button);
+        SelectButtonCommand = new RelayCommand(SelectButton, parameter => !IsBusy && parameter is Button);
+    }
+
+    private void RefreshButtonGroups()
+    {
+        EventButtons.Clear();
+        ActionButtons.Clear();
+        foreach (var button in Buttons)
+        {
+            if (button.Type == ButtonType.Event)
+                EventButtons.Add(button);
+            else
+                ActionButtons.Add(button);
+        }
+
+        OnPropertyChanged(nameof(EventButtonCount));
+        OnPropertyChanged(nameof(ActionButtonCount));
+        OnPropertyChanged(nameof(HasNoEventButtons));
+        OnPropertyChanged(nameof(HasNoActionButtons));
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public ObservableCollection<Template> Templates { get; } = [];
     public ObservableCollection<Button> Buttons { get; } = [];
+    public ObservableCollection<Button> EventButtons { get; } = [];
+    public ObservableCollection<Button> ActionButtons { get; } = [];
     public IReadOnlyList<ButtonType> ButtonTypes { get; } = Enum.GetValues<ButtonType>();
     public IReadOnlyList<PressMode> PressModes { get; } = Enum.GetValues<PressMode>();
+    public IReadOnlyList<ButtonColorOption> ColorOptions { get; } =
+    [
+        new("#55B7A8", new SolidColorBrush(AvaloniaColor.Parse("#55B7A8"))),
+        new("#3B82F6", new SolidColorBrush(AvaloniaColor.Parse("#3B82F6"))),
+        new("#8B5CF6", new SolidColorBrush(AvaloniaColor.Parse("#8B5CF6"))),
+        new("#EC4899", new SolidColorBrush(AvaloniaColor.Parse("#EC4899"))),
+        new("#EF4444", new SolidColorBrush(AvaloniaColor.Parse("#EF4444"))),
+        new("#F97316", new SolidColorBrush(AvaloniaColor.Parse("#F97316"))),
+        new("#EAB308", new SolidColorBrush(AvaloniaColor.Parse("#EAB308"))),
+        new("#22C55E", new SolidColorBrush(AvaloniaColor.Parse("#22C55E"))),
+        new("#14B8A6", new SolidColorBrush(AvaloniaColor.Parse("#14B8A6"))),
+        new("#64748B", new SolidColorBrush(AvaloniaColor.Parse("#64748B")))
+    ];
 
+    public ICommand OpenCreateTemplateCommand { get; }
     public ICommand CreateTemplateCommand { get; }
     public ICommand UpdateTemplateCommand { get; }
     public ICommand DeleteTemplateCommand { get; }
+    public ICommand ConfirmDeleteTemplateCommand { get; }
+    public ICommand DiscardTemplateCommand { get; }
     public ICommand RefreshCommand { get; }
     public ICommand CreateButtonCommand { get; }
     public ICommand UpdateButtonCommand { get; }
-    public ICommand NewButtonCommand { get; }
+    public ICommand OpenEventButtonCommand { get; }
+    public ICommand OpenActionButtonCommand { get; }
+    public ICommand SaveButtonCommand { get; }
+    public ICommand DiscardButtonCommand { get; }
+    public ICommand SelectColorCommand { get; }
     public ICommand ArchiveButtonCommand { get; }
     public ICommand UnarchiveButtonCommand { get; }
     public ICommand DeleteButtonCommand { get; }
     public ICommand SelectButtonCommand { get; }
+
+    public bool IsTemplateDialogOpen
+    {
+        get => _isTemplateDialogOpen;
+        private set
+        {
+            if (SetProperty(ref _isTemplateDialogOpen, value))
+                OnPropertyChanged(nameof(IsAnyDialogOpen));
+        }
+    }
+
+    public bool IsDeleteTemplateConfirmationOpen
+    {
+        get => _isDeleteTemplateConfirmationOpen;
+        set
+        {
+            if (SetProperty(ref _isDeleteTemplateConfirmationOpen, value))
+                OnPropertyChanged(nameof(IsAnyDialogOpen));
+        }
+    }
+
+    public bool IsButtonDialogOpen
+    {
+        get => _isButtonDialogOpen;
+        private set
+        {
+            if (SetProperty(ref _isButtonDialogOpen, value))
+            {
+                OnPropertyChanged(nameof(IsAnyDialogOpen));
+                NotifyCommandStates();
+            }
+        }
+    }
+
+    public string ButtonDialogTitle
+    {
+        get => _buttonDialogTitle;
+        private set => SetProperty(ref _buttonDialogTitle, value);
+    }
+
+    public bool IsAnyDialogOpen => IsTemplateDialogOpen || IsDeleteTemplateConfirmationOpen || IsButtonDialogOpen;
 
     public Template? SelectedTemplate
     {
@@ -81,6 +175,7 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
             SelectedButton = null;
             ResetButtonEditor();
             Buttons.Clear();
+            RefreshButtonGroups();
             OnPropertyChanged();
             OnPropertyChanged(nameof(HasSelectedTemplate));
             OnPropertyChanged(nameof(IsCreatingButton));
@@ -109,6 +204,7 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
                 PopulateButtonEditor(value);
             OnPropertyChanged();
             OnPropertyChanged(nameof(HasSelectedButton));
+            OnPropertyChanged(nameof(IsButtonEditorEnabled));
             OnPropertyChanged(nameof(IsCreatingButton));
             OnPropertyChanged(nameof(HasArchivedSelectedButton));
             OnPropertyChanged(nameof(HasArchivableSelectedButton));
@@ -154,7 +250,10 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
         set
         {
             if (SetProperty(ref _buttonColor, value))
+            {
+                OnPropertyChanged(nameof(SelectedColorBrush));
                 NotifyCommandStates();
+            }
         }
     }
 
@@ -240,6 +339,7 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
             if (SetProperty(ref _isBusy, value))
             {
                 OnPropertyChanged(nameof(IsNotBusy));
+                OnPropertyChanged(nameof(IsButtonEditorEnabled));
                 NotifyCommandStates();
             }
         }
@@ -247,6 +347,7 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
 
     public bool IsNotBusy => !IsBusy;
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
+    public bool IsButtonEditorEnabled => IsNotBusy && SelectedButton is not { Archived: true };
     public bool HasSelectedTemplate => SelectedTemplate is not null;
     public bool HasSelectedButton => SelectedButton is not null;
     public bool IsCreatingButton => SelectedTemplate is not null && SelectedButton is null;
@@ -256,8 +357,13 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
     public bool HasNoTemplates => Templates.Count == 0;
     public bool HasButtons => Buttons.Count > 0;
     public bool HasNoButtons => Buttons.Count == 0;
+    public bool HasNoEventButtons => EventButtons.Count == 0;
+    public bool HasNoActionButtons => ActionButtons.Count == 0;
     public bool IsDoublePressMode => SelectedPressMode == PressMode.Double;
     public bool IsSinglePressMode => SelectedPressMode == PressMode.Single;
+    public int EventButtonCount => EventButtons.Count;
+    public int ActionButtonCount => ActionButtons.Count;
+    public IBrush SelectedColorBrush => new SolidColorBrush(AvaloniaColor.Parse(ButtonColor));
 
     public Task InitializeAsync() => LoadTemplatesAsync();
 
@@ -281,6 +387,7 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
             if (SelectedTemplate is { } selected)
                 await LoadButtonsAsync(selected.Id);
         }
+
         catch (Exception exception)
         {
             _isReloadingTemplates = false;
@@ -306,6 +413,7 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
             SelectedTemplate = template;
             _isReloadingTemplates = false;
             await LoadButtonsAsync(template.Id);
+            CloseTemplateDialog();
         }
         catch (Exception exception)
         {
@@ -359,6 +467,7 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
             await _templateService.RemoveAsync(template.Id);
             Templates.Remove(template);
             NotifyTemplatesChanged();
+            IsDeleteTemplateConfirmationOpen = false;
             _isReloadingTemplates = true;
             SelectedTemplate = Templates.FirstOrDefault();
             _isReloadingTemplates = false;
@@ -392,6 +501,7 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
             foreach (var button in buttons)
                 Buttons.Add(button);
             NotifyButtonsChanged();
+            RefreshButtonGroups();
         }
         catch (Exception exception)
         {
@@ -429,7 +539,8 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
             await _buttonService.CreateAsync(button);
             Buttons.Add(button);
             NotifyButtonsChanged();
-            SelectedButton = button;
+            RefreshButtonGroups();
+            CloseButtonDialog();
         }
         catch (Exception exception)
         {
@@ -464,7 +575,8 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
                 postSeconds);
             await _buttonService.UpdateAsync(button.Id, button);
             RefreshCollectionItem(Buttons, button);
-            PopulateButtonEditor(button);
+            RefreshButtonGroups();
+            CloseButtonDialog();
         }
         catch (Exception exception)
         {
@@ -510,7 +622,9 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
             await _buttonService.RemoveAsync(button.Id);
             Buttons.Remove(button);
             NotifyButtonsChanged();
+            RefreshButtonGroups();
             SelectedButton = null;
+            IsButtonDialogOpen = false;
         }
         catch (Exception exception)
         {
@@ -535,6 +649,7 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
 
             await LoadButtonsAsync(button.TemplateId);
             SelectedButton = Buttons.FirstOrDefault(candidate => candidate.Id == button.Id);
+            RefreshButtonGroups();
             OnPropertyChanged(nameof(HasArchivedSelectedButton));
             OnPropertyChanged(nameof(HasArchivableSelectedButton));
             NotifyCommandStates();
@@ -549,7 +664,7 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
         }
     }
 
-    private (Color Color, float PreSeconds, float PostSeconds) ReadButtonConfiguration()
+    private (System.Drawing.Color Color, float PreSeconds, float PostSeconds) ReadButtonConfiguration()
     {
         var color = ColorTranslator.FromHtml(ButtonColor);
         if (SelectedPressMode == PressMode.Double)
@@ -576,8 +691,73 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
     private void SelectButton(object? parameter)
     {
         if (parameter is Button button)
+        {
             SelectedButton = button;
+            ButtonDialogTitle = button.Archived ? "Archived button" : "Edit button";
+            IsButtonDialogOpen = true;
+        }
     }
+
+    private void OpenTemplateDialog()
+    {
+        NewTemplateName = string.Empty;
+        ClearError();
+        IsTemplateDialogOpen = true;
+    }
+
+    private void OpenDeleteTemplateConfirmation(object? parameter)
+    {
+        ClearError();
+        IsDeleteTemplateConfirmationOpen = true;
+    }
+
+    private void CloseTemplateDialog()
+    {
+        IsTemplateDialogOpen = false;
+        NewTemplateName = string.Empty;
+    }
+
+    private void CancelTemplateDialog(object? parameter)
+    {
+        if (parameter is string)
+            IsDeleteTemplateConfirmationOpen = false;
+        else
+            CloseTemplateDialog();
+    }
+
+    private void OpenButtonDialog(ButtonType type)
+    {
+        SelectedButton = null;
+        ResetButtonEditor();
+        SelectedButtonType = type;
+        ButtonDialogTitle = type == ButtonType.Event ? "New event button" : "New action button";
+        ClearError();
+        IsButtonDialogOpen = true;
+    }
+
+    private void CloseButtonDialog()
+    {
+        IsButtonDialogOpen = false;
+        SelectedButton = null;
+        ResetButtonEditor();
+        ClearError();
+    }
+
+    private void PickColor(object? parameter)
+    {
+        if (parameter is string color)
+            ButtonColor = color;
+    }
+
+    private Task SaveButtonAsync() =>
+        SelectedButton is null ? CreateButtonAsync() : UpdateButtonAsync();
+
+    private bool CanSaveButton() =>
+        !IsBusy
+        && IsButtonDialogOpen
+        && SelectedTemplate is not null
+        && !string.IsNullOrWhiteSpace(ButtonName)
+        && (SelectedButton is null || !SelectedButton.Archived);
 
     private void PopulateButtonEditor(Button button)
     {
@@ -633,15 +813,19 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
     {
         OnPropertyChanged(nameof(HasButtons));
         OnPropertyChanged(nameof(HasNoButtons));
+        OnPropertyChanged(nameof(HasNoEventButtons));
+        OnPropertyChanged(nameof(HasNoActionButtons));
     }
 
     private void NotifyCommandStates()
     {
         foreach (var command in new ICommand[]
         {
-            CreateTemplateCommand, UpdateTemplateCommand, DeleteTemplateCommand, RefreshCommand,
-            CreateButtonCommand, UpdateButtonCommand, ArchiveButtonCommand, UnarchiveButtonCommand,
-            DeleteButtonCommand, SelectButtonCommand, NewButtonCommand
+            OpenCreateTemplateCommand, CreateTemplateCommand, UpdateTemplateCommand, DeleteTemplateCommand,
+            ConfirmDeleteTemplateCommand, DiscardTemplateCommand, RefreshCommand,
+            CreateButtonCommand, UpdateButtonCommand, OpenEventButtonCommand, OpenActionButtonCommand,
+            SaveButtonCommand, DiscardButtonCommand, SelectColorCommand, ArchiveButtonCommand,
+            UnarchiveButtonCommand, DeleteButtonCommand, SelectButtonCommand
         })
         {
             if (command is AsyncCommand asyncCommand)
@@ -681,7 +865,7 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
 
     private sealed record ButtonConfiguration(
         string Name,
-        Color Color,
+        System.Drawing.Color Color,
         ButtonType Type,
         PressMode Mode,
         string? Hotkey,
@@ -717,3 +901,5 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
         public void NotifyCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
     }
 }
+
+public sealed record ButtonColorOption(string Hex, IBrush Brush);
