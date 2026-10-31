@@ -22,6 +22,9 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
     private readonly ITeamService _teamService;
     private Match? _selectedMatch;
     private Player? _selectedPlayer;
+    private PlayerFilterOptionViewModel? _selectedActionPlayerFilter;
+    private ButtonFilterOptionViewModel? _selectedActionButtonFilter;
+    private ActionRate? _actionRateFilter;
     private string? _errorMessage;
     private bool _isBusy;
     private bool _isPlaying;
@@ -72,6 +75,27 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
             if (parameter is PlayerChoiceViewModel choice)
                 SelectedPlayer = choice.Player;
         }, parameter => parameter is PlayerChoiceViewModel);
+        SelectActionPlayerFilterCommand = new RelayCommand(parameter =>
+        {
+            if (parameter is PlayerFilterOptionViewModel option)
+                SelectedActionPlayerFilter = option;
+        }, parameter => parameter is PlayerFilterOptionViewModel);
+        SelectActionButtonFilterCommand = new RelayCommand(parameter =>
+        {
+            if (parameter is ButtonFilterOptionViewModel option)
+                SelectedActionButtonFilter = option;
+        }, parameter => parameter is ButtonFilterOptionViewModel);
+        ToggleActionRateFilterCommand = new RelayCommand(parameter =>
+        {
+            if (parameter is ActionRate rate)
+                ActionRateFilter = ActionRateFilter == rate ? null : rate;
+        }, parameter => parameter is ActionRate);
+        ClearActionFiltersCommand = new RelayCommand(_ =>
+        {
+            SelectedActionPlayerFilter = PlayerFilterOptions.FirstOrDefault();
+            SelectedActionButtonFilter = ButtonFilterOptions.FirstOrDefault();
+            ActionRateFilter = null;
+        }, _ => !IsBusy);
         SelectEventsTabCommand = new RelayCommand(_ => SelectedTabIndex = 0, _ => !IsBusy);
         SelectActionsTabCommand = new RelayCommand(_ => SelectedTabIndex = 1, _ => !IsBusy);
         SetActionRateCommand = new AsyncCommand(SetActionRateAsync, parameter => !IsBusy && parameter is ActionRateOptionViewModel);
@@ -117,6 +141,7 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
         {
             IsBusy = false;
         }
+
     }
 
     private async Task SetActionRateAsync(object? parameter)
@@ -132,6 +157,7 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
             option.Entry.Action.UpdateRate(option.Rate);
             await _actionService.UpdateAsync(option.Entry.Action.Id, option.Entry.Action);
             option.Entry.SetRate(option.Rate);
+            RefreshFilteredActionEntries();
         }
         catch (Exception exception)
         {
@@ -185,9 +211,12 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
     public ObservableCollection<Button> ActionButtons { get; } = [];
     public ObservableCollection<AnalysisEntryViewModel> EventEntries { get; } = [];
     public ObservableCollection<AnalysisEntryViewModel> ActionEntries { get; } = [];
+    public ObservableCollection<AnalysisEntryViewModel> FilteredActionEntries { get; } = [];
     public ObservableCollection<EventTimelineLaneViewModel> EventTimelineLanes { get; } = [];
     public ObservableCollection<Player> Players { get; } = [];
     public ObservableCollection<PlayerChoiceViewModel> PlayerChoices { get; } = [];
+    public ObservableCollection<PlayerFilterOptionViewModel> PlayerFilterOptions { get; } = [];
+    public ObservableCollection<ButtonFilterOptionViewModel> ButtonFilterOptions { get; } = [];
     public IReadOnlyList<ActionRate> ActionRates { get; } = Enum.GetValues<ActionRate>();
 
     public ICommand RecordButtonCommand { get; }
@@ -199,6 +228,10 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
     public ICommand TogglePlaybackCommand { get; }
     public ICommand BackCommand { get; }
     public ICommand SelectPlayerCommand { get; }
+    public ICommand SelectActionPlayerFilterCommand { get; }
+    public ICommand SelectActionButtonFilterCommand { get; }
+    public ICommand ToggleActionRateFilterCommand { get; }
+    public ICommand ClearActionFiltersCommand { get; }
     public ICommand SelectEventsTabCommand { get; }
     public ICommand SelectActionsTabCommand { get; }
     public ICommand SetActionRateCommand { get; }
@@ -235,6 +268,58 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
             }
         }
     }
+
+    public PlayerFilterOptionViewModel? SelectedActionPlayerFilter
+    {
+        get => _selectedActionPlayerFilter;
+        set
+        {
+            if (SetProperty(ref _selectedActionPlayerFilter, value))
+            {
+                OnPropertyChanged(nameof(HasActiveActionFilters));
+                RefreshFilteredActionEntries();
+            }
+        }
+    }
+
+    public ButtonFilterOptionViewModel? SelectedActionButtonFilter
+    {
+        get => _selectedActionButtonFilter;
+        set
+        {
+            if (SetProperty(ref _selectedActionButtonFilter, value))
+            {
+                OnPropertyChanged(nameof(HasActiveActionFilters));
+                RefreshFilteredActionEntries();
+            }
+        }
+    }
+
+    public ActionRate? ActionRateFilter
+    {
+        get => _actionRateFilter;
+        private set
+        {
+            if (SetProperty(ref _actionRateFilter, value))
+            {
+                OnPropertyChanged(nameof(IsGoodRateFilterSelected));
+                OnPropertyChanged(nameof(IsNaturalRateFilterSelected));
+                OnPropertyChanged(nameof(IsBadRateFilterSelected));
+                OnPropertyChanged(nameof(HasActiveActionFilters));
+                RefreshFilteredActionEntries();
+            }
+        }
+    }
+
+    public bool IsGoodRateFilterSelected => ActionRateFilter == ActionRate.Good;
+    public bool IsNaturalRateFilterSelected => ActionRateFilter == ActionRate.Natural;
+    public bool IsBadRateFilterSelected => ActionRateFilter == ActionRate.Bad;
+    public bool HasFilteredActions => FilteredActionEntries.Count > 0;
+    public int FilteredActionCount => FilteredActionEntries.Count;
+    public bool HasActiveActionFilters =>
+        (SelectedActionPlayerFilter?.Player is not null) ||
+        (SelectedActionButtonFilter?.Button is not null) ||
+        ActionRateFilter is not null;
 
     public AnalysisEntryViewModel? EditingEntry
     {
@@ -436,16 +521,24 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
             ClearPendingPress();
             EventEntries.Clear();
             ActionEntries.Clear();
+            FilteredActionEntries.Clear();
             EventButtons.Clear();
             ActionButtons.Clear();
             Players.Clear();
             PlayerChoices.Clear();
+            PlayerFilterOptions.Clear();
+            ButtonFilterOptions.Clear();
+            ActionRateFilter = null;
 
             var buttons = await _buttonService.GetTemplateButtonsAsync(match.TemplateId);
             foreach (var button in buttons.Where(button => button.Type == ButtonType.Event))
                 EventButtons.Add(button);
             foreach (var button in buttons.Where(button => button.Type == ButtonType.Action))
                 ActionButtons.Add(button);
+            ButtonFilterOptions.Add(new ButtonFilterOptionViewModel(null));
+            foreach (var button in ActionButtons)
+                ButtonFilterOptions.Add(new ButtonFilterOptionViewModel(button));
+            SelectedActionButtonFilter = ButtonFilterOptions[0];
             OnPropertyChanged(nameof(HasEventButtons));
             OnPropertyChanged(nameof(HasActionButtons));
 
@@ -456,6 +549,10 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
                 Players.Add(player);
                 PlayerChoices.Add(new PlayerChoiceViewModel(player));
             }
+            PlayerFilterOptions.Add(new PlayerFilterOptionViewModel(null));
+            foreach (var player in Players)
+                PlayerFilterOptions.Add(new PlayerFilterOptionViewModel(player));
+            SelectedActionPlayerFilter = PlayerFilterOptions[0];
             SelectedPlayer = Players.FirstOrDefault();
 
             var events = await _eventService.GetMatchEventsAsync(match.Id);
@@ -467,6 +564,7 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
                 ActionEntries.Add(AnalysisEntryViewModel.FromAction(
                     action, FindButton(action.ButtonId), Players.FirstOrDefault(player => player.Id == action.PlayerId)));
 
+            RefreshFilteredActionEntries();
             OnPropertyChanged(nameof(HasEvents));
             OnPropertyChanged(nameof(HasActions));
             OnPropertyChanged(nameof(HasPlayers));
@@ -566,6 +664,7 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
                 var action = await _actionService.CreateAsync(new Action(
                     match.Id, button.Id, SelectedPlayer!.Id, ActionRate.Natural, start, end, null));
                 InsertByStartTime(ActionEntries, AnalysisEntryViewModel.FromAction(action, button, SelectedPlayer));
+                RefreshFilteredActionEntries();
                 OnPropertyChanged(nameof(HasActions));
             }
         }
@@ -642,6 +741,7 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
             {
                 ActionEntries.Remove(entry);
                 InsertByStartTime(ActionEntries, AnalysisEntryViewModel.FromAction(entry.Action, entry.Button, EditPlayer));
+                RefreshFilteredActionEntries();
             }
             CloseEditDialog();
         }
@@ -675,6 +775,7 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
             {
                 await _actionService.RemoveAsync(entry.Action.Id);
                 ActionEntries.Remove(entry);
+                RefreshFilteredActionEntries();
                 OnPropertyChanged(nameof(HasActions));
             }
 
@@ -693,6 +794,24 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
 
     private Button? FindButton(Guid buttonId) =>
         EventButtons.Concat(ActionButtons).FirstOrDefault(button => button.Id == buttonId);
+
+    private void RefreshFilteredActionEntries()
+    {
+        var playerId = SelectedActionPlayerFilter?.Player?.Id;
+        var buttonId = SelectedActionButtonFilter?.Button?.Id;
+
+        FilteredActionEntries.Clear();
+        foreach (var entry in ActionEntries.Where(entry =>
+                     (playerId is null || entry.Player?.Id == playerId) &&
+                     (buttonId is null || entry.Button?.Id == buttonId) &&
+                     (ActionRateFilter is null || entry.Rate == ActionRateFilter)))
+        {
+            FilteredActionEntries.Add(entry);
+        }
+
+        OnPropertyChanged(nameof(HasFilteredActions));
+        OnPropertyChanged(nameof(FilteredActionCount));
+    }
 
     private void RefreshTimelineLanes()
     {
@@ -792,7 +911,9 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
             DeleteEntryCommand,
             SeekToEntryCommand, TogglePlaybackCommand, BackCommand, SelectPlayerCommand,
             SelectEventsTabCommand, SelectActionsTabCommand, SetActionRateCommand,
-            OpenNoteCommand, SaveNoteCommand, DiscardNoteCommand
+            OpenNoteCommand, SaveNoteCommand, DiscardNoteCommand,
+            SelectActionPlayerFilterCommand, SelectActionButtonFilterCommand,
+            ToggleActionRateFilterCommand, ClearActionFiltersCommand
         })
         {
             if (command is AsyncCommand asyncCommand)
@@ -985,5 +1106,20 @@ public sealed class MatchAnalysisViewModel : WorkspacePageViewModel, INotifyProp
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
             }
         }
+
+    }
+
+    public sealed class PlayerFilterOptionViewModel(Player? player)
+    {
+        public Player? Player { get; } = player;
+        public string DisplayName { get; } = player is null
+            ? "All players"
+            : $"#{player.Number} {player.Name}";
+    }
+
+    public sealed class ButtonFilterOptionViewModel(Button? button)
+    {
+        public Button? Button { get; } = button;
+        public string DisplayName { get; } = button?.Name ?? "All actions";
     }
 }

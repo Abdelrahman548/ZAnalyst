@@ -4,6 +4,7 @@
              xmlns:converters="using:ZAnalyst.Desktop.Converters"
              xmlns:vm="using:ZAnalyst.Desktop.ViewModels"
              xmlns:domain="using:ZAnalyst.Domain.Entities"
+             xmlns:enums="using:ZAnalyst.Domain.Enums"
              xmlns:vlc="using:LibVLCSharp.Avalonia"
              x:Class="ZAnalyst.Desktop.Views.MatchAnalysisView"
              x:DataType="vm:MatchAnalysisViewModel">
@@ -12,6 +13,9 @@
         <Geometry x:Key="EditIconGeometry">M4 16.5V20H7.5L18.8 8.7L15.3 5.2L4 16.5ZM20.7 6.8C21.1 6.4 21.1 5.8 20.7 5.4L18.6 3.3C18.2 2.9 17.6 2.9 17.2 3.3L15.9 4.6L19.4 8.1L20.7 6.8Z</Geometry>
         <Geometry x:Key="NoteIconGeometry">M4 4H20V17H8L4 21V4ZM7 8H17M7 11H17M7 14H14</Geometry>
         <Geometry x:Key="DeleteIconGeometry">M5 6H19M9 6V4H15V6M18 6L17 20H7L6 6M10 10V16M14 10V16</Geometry>
+        <Geometry x:Key="PlayerFilterIconGeometry">M12 12A4 4 0 1 0 12 4A4 4 0 0 0 12 12ZM4 21A8 8 0 0 1 20 21</Geometry>
+        <Geometry x:Key="RateFilterIconGeometry">M4 5H20L14 12V19L10 21V12L4 5Z</Geometry>
+        <Geometry x:Key="ActionFilterIconGeometry">M4 5H20M4 12H20M4 19H20M8 3V7M15 10V14M11 17V21</Geometry>
     </UserControl.Resources>
     <UserControl.Styles>
         <Style Selector="Button.action-icon">
@@ -56,6 +60,25 @@
         <Style Selector="Button.rate-option.selected">
             <Setter Property="Background" Value="{DynamicResource SelectedSurfaceBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+        </Style>
+        <Style Selector="Button.rate-filter">
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="1" />
+        </Style>
+        <Style Selector="Button.rate-filter.selected">
+            <Setter Property="Background" Value="{DynamicResource SelectedSurfaceBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+        </Style>
+        <Style Selector="ComboBox.filter-select">
+            <Setter Property="MinWidth" Value="100" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Margin" Value="3,0" />
+        </Style>
+        <Style Selector="Border.analysis-entry">
+            <Setter Property="Background" Value="#202A36" />
+            <Setter Property="BorderBrush" Value="#526174" />
         </Style>
     </UserControl.Styles>
 
@@ -206,8 +229,58 @@
 
                 <Border Grid.Column="1" BorderBrush="{DynamicResource BorderBrush}"
                         BorderThickness="1,0,0,0" Padding="16">
-                    <Grid>
-                    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" RowSpacing="10"
+                    <Grid RowDefinitions="Auto,*" RowSpacing="8">
+                        <Border Classes="surface-card" Padding="6,5"
+                                IsVisible="{Binding IsActionTab}">
+                            <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <PathIcon Data="{StaticResource PlayerFilterIconGeometry}" Width="16" Height="16"
+                                          Foreground="#55B8FF" VerticalAlignment="Center" />
+                                <ComboBox Classes="filter-select" Width="112"
+                                          ItemsSource="{Binding PlayerFilterOptions}"
+                                          SelectedItem="{Binding SelectedActionPlayerFilter, Mode=TwoWay}"
+                                          ToolTip.Tip="Filter by player">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:MatchAnalysisViewModel+PlayerFilterOptionViewModel">
+                                            <TextBlock Text="{Binding DisplayName}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <PathIcon Data="{StaticResource RateFilterIconGeometry}" Width="16" Height="16"
+                                          Foreground="#B69CFF" VerticalAlignment="Center" Margin="4,0,2,0" />
+                                <Button Content="✓" Classes="rate-filter"
+                                        Classes.selected="{Binding IsGoodRateFilterSelected}"
+                                        Foreground="#38C981" ToolTip.Tip="Good actions only"
+                                        Command="{Binding ToggleActionRateFilterCommand}"
+                                        CommandParameter="{x:Static enums:ActionRate.Good}" />
+                                <Button Content="•" Classes="rate-filter"
+                                        Classes.selected="{Binding IsNaturalRateFilterSelected}"
+                                        Foreground="#F3C653" ToolTip.Tip="Natural actions only"
+                                        Command="{Binding ToggleActionRateFilterCommand}"
+                                        CommandParameter="{x:Static enums:ActionRate.Natural}" />
+                                <Button Content="×" Classes="rate-filter"
+                                        Classes.selected="{Binding IsBadRateFilterSelected}"
+                                        Foreground="#F07178" ToolTip.Tip="Bad actions only"
+                                        Command="{Binding ToggleActionRateFilterCommand}"
+                                        CommandParameter="{x:Static enums:ActionRate.Bad}" />
+                                <PathIcon Data="{StaticResource ActionFilterIconGeometry}" Width="16" Height="16"
+                                          Foreground="#55B8FF" VerticalAlignment="Center" Margin="4,0,2,0" />
+                                <ComboBox Classes="filter-select" Width="112"
+                                          ItemsSource="{Binding ButtonFilterOptions}"
+                                          SelectedItem="{Binding SelectedActionButtonFilter, Mode=TwoWay}"
+                                          ToolTip.Tip="Filter by action type">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:MatchAnalysisViewModel+ButtonFilterOptionViewModel">
+                                            <TextBlock Text="{Binding DisplayName}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <Button Content="Clear" Padding="6,3" Margin="3,0"
+                                        ToolTip.Tip="Clear all action filters"
+                                        IsVisible="{Binding HasActiveActionFilters}"
+                                        Command="{Binding ClearActionFiltersCommand}" />
+                            </WrapPanel>
+                        </Border>
+                    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,*" RowSpacing="10"
                           IsVisible="{Binding IsActionTab}">
                         <StackPanel Spacing="7">
                             <TextBlock Text="MY PLAYERS" FontSize="11" FontWeight="SemiBold"
@@ -301,17 +374,15 @@
                             <Grid ColumnDefinitions="*,Auto">
                                 <TextBlock Text="RECORDED ACTIONS" FontSize="11" FontWeight="SemiBold"
                                            Foreground="{DynamicResource SecondaryTextBrush}" />
-                                <TextBlock Grid.Column="1" Text="{Binding ActionEntries.Count}"
+                                <TextBlock Grid.Column="1" Text="{Binding FilteredActionCount}"
                                            FontSize="10" Foreground="{DynamicResource MutedTextBrush}" />
                             </Grid>
                             <Grid Grid.Row="1">
                                 <ScrollViewer>
-                                    <ItemsControl ItemsSource="{Binding ActionEntries}">
+                                    <ItemsControl ItemsSource="{Binding FilteredActionEntries}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="vm:MatchAnalysisViewModel+AnalysisEntryViewModel">
-                                                <Border Background="{DynamicResource AppBackgroundBrush}"
-                                                        BorderBrush="{DynamicResource BorderBrush}"
-                                                        BorderThickness="1" CornerRadius="6"
+                                                <Border Classes="analysis-entry" BorderThickness="1" CornerRadius="6"
                                                         Padding="5,4" Margin="0,0,0,4">
                                                     <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="6">
                                                         <Button Padding="3,0" HorizontalAlignment="Stretch"
@@ -322,16 +393,17 @@
                                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="5">
                                                                 <StackPanel Orientation="Horizontal" Spacing="5">
                                                                     <TextBlock Text="{Binding ButtonName}"
-                                                                               FontSize="11" FontWeight="SemiBold"
+                                                                               FontSize="12" FontWeight="Bold"
                                                                                TextTrimming="CharacterEllipsis"
-                                                                               Foreground="{DynamicResource PrimaryTextBrush}" />
+                                                                               Foreground="#F4F7FB" />
                                                                     <TextBlock Text="{Binding PlayerLabel}"
-                                                                               FontSize="10"
-                                                                               Foreground="{DynamicResource SecondaryTextBrush}" />
+                                                                               FontSize="11" FontWeight="Medium"
+                                                                               Foreground="#B8C6D9" />
                                                                 </StackPanel>
                                                                 <TextBlock Grid.Column="1" Text="{Binding TimeRange}"
-                                                                           FontSize="9" VerticalAlignment="Center"
-                                                                           Foreground="{DynamicResource MutedTextBrush}" />
+                                                                           FontSize="10" FontWeight="SemiBold"
+                                                                           VerticalAlignment="Center"
+                                                                           Foreground="#DCE6F2" />
                                                             </Grid>
                                                         </Button>
                                                         <ItemsControl Grid.Column="1" ItemsSource="{Binding RateOptions}"
@@ -386,10 +458,15 @@
                                            IsVisible="{Binding !HasActions}"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"
                                            FontSize="11" Foreground="{DynamicResource MutedTextBrush}" />
+                                <TextBlock Text="No actions match these filters."
+                                           IsVisible="{Binding HasActions}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           FontSize="12" FontWeight="SemiBold"
+                                           Foreground="#B8C6D9" />
                             </Grid>
                         </Grid>
                     </Grid>
-                    <Grid RowDefinitions="Auto,Auto,*" RowSpacing="10"
+                    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*" RowSpacing="10"
                           IsVisible="{Binding IsEventsTab}">
                         <Grid ColumnDefinitions="*,Auto">
                             <StackPanel Spacing="3">
@@ -436,9 +513,7 @@
                                 <ItemsControl ItemsSource="{Binding EventEntries}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:MatchAnalysisViewModel+AnalysisEntryViewModel">
-                                            <Border Background="{DynamicResource AppBackgroundBrush}"
-                                                    BorderBrush="{DynamicResource BorderBrush}"
-                                                    BorderThickness="1" CornerRadius="6"
+                                            <Border Classes="analysis-entry" BorderThickness="1" CornerRadius="6"
                                                     Padding="7" Margin="0,0,0,5">
                                                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
                                                     <Button HorizontalContentAlignment="Left"
@@ -446,11 +521,12 @@
                                                             Command="{Binding $parent[UserControl].((vm:MatchAnalysisViewModel)DataContext).SeekToEntryCommand}"
                                                             CommandParameter="{Binding}">
                                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                                            <TextBlock Text="{Binding ButtonName}" FontSize="11"
-                                                                       FontWeight="SemiBold"
-                                                                       Foreground="{DynamicResource PrimaryTextBrush}" />
+                                                            <TextBlock Text="{Binding ButtonName}" FontSize="12"
+                                                                       FontWeight="Bold"
+                                                                       Foreground="#F4F7FB" />
                                                             <TextBlock Text="{Binding TimeRange}" FontSize="10"
-                                                                       Foreground="{DynamicResource MutedTextBrush}" />
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="#DCE6F2" />
                                                         </StackPanel>
                                                     </Button>
                                                     <Button Grid.Column="1" ToolTip.Tip="Edit event"
