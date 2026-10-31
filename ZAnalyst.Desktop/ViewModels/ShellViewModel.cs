@@ -13,15 +13,18 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
     private readonly TeamsViewModel _teamsViewModel;
     private readonly TemplatesViewModel _templatesViewModel;
+    private readonly MatchesViewModel _matchesViewModel;
 
     public ShellViewModel(
         ITeamService teamService,
         IPlayerService playerService,
+        IMatchService matchService,
         ITemplateService templateService,
         IButtonService buttonService)
     {
         _teamsViewModel = new TeamsViewModel(teamService, playerService);
         _templatesViewModel = new TemplatesViewModel(templateService, buttonService);
+        _matchesViewModel = new MatchesViewModel(matchService, teamService, templateService);
         NavigateCommand = new RelayCommand(parameter =>
         {
             if (parameter is NavigationItemViewModel item)
@@ -30,7 +33,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
 
         NavigationItems =
         [
-            CreateNavigationItem("Matches", "01", new MatchesViewModel()),
+            CreateNavigationItem("Matches", "01", _matchesViewModel),
             CreateNavigationItem("Match analysis", "02", new MatchAnalysisViewModel()),
             CreateNavigationItem("Teams & players", "03", _teamsViewModel),
             CreateNavigationItem("Templates", "04", _templatesViewModel)
@@ -68,6 +71,7 @@ public sealed class ShellViewModel : INotifyPropertyChanged
     {
         await _teamsViewModel.InitializeAsync();
         await _templatesViewModel.InitializeAsync();
+        await _matchesViewModel.InitializeAsync();
     }
 
     private NavigationItemViewModel CreateNavigationItem(

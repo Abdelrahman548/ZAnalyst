@@ -2,28 +2,30 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:ZAnalyst.Desktop.Controls"
              xmlns:vm="using:ZAnalyst.Desktop.ViewModels"
+             xmlns:domain="using:ZAnalyst.Domain.Entities"
              x:Class="ZAnalyst.Desktop.Views.MatchesView"
              x:DataType="vm:MatchesViewModel">
-    <ScrollViewer>
-        <StackPanel Spacing="24">
-            <Grid ColumnDefinitions="*,Auto">
-                <controls:PageHeading Title="{Binding Title}"
-                                      Description="{Binding Description}" />
-                <Button Grid.Column="1"
-                        Classes="primary-button"
-                        Content="New match"
-                        IsEnabled="False"
-                        VerticalAlignment="Center" />
-            </Grid>
+    <Grid RowDefinitions="Auto,*,Auto" RowSpacing="20">
+        <Grid ColumnDefinitions="*,Auto">
+            <controls:PageHeading Title="{Binding Title}" Description="{Binding Description}" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Button Content="Refresh" Command="{Binding RefreshCommand}"
+                        IsEnabled="{Binding IsNotBusy}" />
+                <Button Classes="primary-button" Content="New match"
+                        Command="{Binding OpenCreateDialogCommand}"
+                        IsEnabled="{Binding IsNotBusy}" />
+            </StackPanel>
+        </Grid>
 
+        <Grid Grid.Row="1" RowDefinitions="Auto,*" RowSpacing="18">
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="14">
                 <Border Classes="surface-card">
                     <StackPanel Spacing="8">
                         <TextBlock Text="MATCHES" FontSize="11" FontWeight="SemiBold"
                                    Foreground="{DynamicResource SecondaryTextBrush}" />
-                        <TextBlock Text="0" FontSize="28" FontWeight="SemiBold"
+                        <TextBlock Text="{Binding MatchCount}" FontSize="28" FontWeight="SemiBold"
                                    Foreground="{DynamicResource PrimaryTextBrush}" />
-                        <TextBlock Text="Ready for your first analysis"
+                        <TextBlock Text="Analyses in this workspace"
                                    Foreground="{DynamicResource MutedTextBrush}" FontSize="12" />
                     </StackPanel>
                 </Border>
@@ -31,9 +33,9 @@
                     <StackPanel Spacing="8">
                         <TextBlock Text="TEAMS" FontSize="11" FontWeight="SemiBold"
                                    Foreground="{DynamicResource SecondaryTextBrush}" />
-                        <TextBlock Text="0" FontSize="28" FontWeight="SemiBold"
+                        <TextBlock Text="{Binding TeamCount}" FontSize="28" FontWeight="SemiBold"
                                    Foreground="{DynamicResource PrimaryTextBrush}" />
-                        <TextBlock Text="Teams in your workspace"
+                        <TextBlock Text="Available for analysis"
                                    Foreground="{DynamicResource MutedTextBrush}" FontSize="12" />
                     </StackPanel>
                 </Border>
@@ -41,37 +43,230 @@
                     <StackPanel Spacing="8">
                         <TextBlock Text="TEMPLATES" FontSize="11" FontWeight="SemiBold"
                                    Foreground="{DynamicResource SecondaryTextBrush}" />
-                        <TextBlock Text="0" FontSize="28" FontWeight="SemiBold"
+                        <TextBlock Text="{Binding TemplateCount}" FontSize="28" FontWeight="SemiBold"
                                    Foreground="{DynamicResource PrimaryTextBrush}" />
-                        <TextBlock Text="Reusable analysis setups"
+                        <TextBlock Text="Available for analysis"
                                    Foreground="{DynamicResource MutedTextBrush}" FontSize="12" />
                     </StackPanel>
                 </Border>
             </Grid>
 
-            <Border Classes="surface-card" MinHeight="250">
-                <StackPanel HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            Spacing="10"
-                            MaxWidth="420">
-                    <Border Width="44" Height="44" CornerRadius="12"
-                            Background="{DynamicResource SelectedSurfaceBrush}"
-                            HorizontalAlignment="Center">
-                        <TextBlock Text="01" FontSize="14" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource AccentBrush}"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <Border Grid.Row="1" Classes="surface-card" Padding="20">
+                <Grid>
+                    <ScrollViewer IsVisible="{Binding HasMatches}">
+                        <ItemsControl ItemsSource="{Binding Matches}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="domain:Match">
+                                    <Border Width="300" Margin="0,0,14,14"
+                                            Classes="surface-card" Padding="16">
+                                        <StackPanel Spacing="12">
+                                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                                                <TextBlock Text="{Binding Team.Name}" FontSize="16"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource PrimaryTextBrush}" />
+                                                <Border Grid.Column="1"
+                                                        Background="{DynamicResource SelectedSurfaceBrush}"
+                                                        CornerRadius="12" Padding="9,4">
+                                                    <TextBlock Text="MATCH" FontSize="9" FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource AccentBrush}" />
+                                                </Border>
+                                                <Button Grid.Column="2" Width="32" Height="32" Padding="7"
+                                                        Background="Transparent" BorderThickness="0"
+                                                        ToolTip.Tip="Delete match"
+                                                        Command="{Binding $parent[UserControl].((vm:MatchesViewModel)DataContext).RequestDeleteMatchCommand}"
+                                                        CommandParameter="{Binding}">
+                                                    <PathIcon Foreground="{DynamicResource ErrorBrush}"
+                                                              Data="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+                                                </Button>
+                                            </Grid>
+                                            <StackPanel Spacing="4">
+                                                <TextBlock Text="ANALYSIS TEMPLATE" FontSize="9"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource MutedTextBrush}" />
+                                                <TextBlock Text="{Binding Template.Name}" FontSize="12"
+                                                           Foreground="{DynamicResource SecondaryTextBrush}" />
+                                            </StackPanel>
+                                            <StackPanel Spacing="4">
+                                                <TextBlock Text="CREATED" FontSize="9"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource MutedTextBrush}" />
+                                                <TextBlock Text="{Binding CreatedAt, StringFormat='{}{0:MMM d, yyyy  h:mm tt}'}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource SecondaryTextBrush}" />
+                                            </StackPanel>
+                                            <Border Background="{DynamicResource AppBackgroundBrush}"
+                                                    CornerRadius="7" Padding="10">
+                                                <TextBlock Text="{Binding VideoPath, TargetNullValue='No video attached'}"
+                                                           FontSize="11" TextTrimming="CharacterEllipsis"
+                                                           ToolTip.Tip="{Binding VideoPath}"
+                                                           Foreground="{DynamicResource MutedTextBrush}" />
+                                            </Border>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                    <StackPanel IsVisible="{Binding HasNoMatches}"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Spacing="10" MaxWidth="420">
+                        <Border Width="44" Height="44" CornerRadius="12"
+                                Background="{DynamicResource SelectedSurfaceBrush}"
+                                HorizontalAlignment="Center">
+                            <TextBlock Text="01" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AccentBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Text="Your match workspace starts here"
+                                   FontSize="18" FontWeight="SemiBold" TextAlignment="Center"
+                                   Foreground="{DynamicResource PrimaryTextBrush}" />
+                        <TextBlock Text="Create a match, choose a team and analysis template, and optionally attach a video. Your matches will appear here."
+                                   FontSize="13" TextWrapping="Wrap" TextAlignment="Center"
+                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                        <Button Classes="primary-button" Content="Create your first match"
+                                Command="{Binding OpenCreateDialogCommand}"
+                                IsEnabled="{Binding IsNotBusy}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Border Grid.Row="2" IsVisible="{Binding HasError}" Background="#3A2528"
+                CornerRadius="7" Padding="12">
+            <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap"
+                       Foreground="{DynamicResource ErrorBrush}" />
+        </Border>
+
+        <Grid Grid.RowSpan="3" IsVisible="{Binding IsAnyDialogOpen}"
+              Background="#B8000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <Border Width="680" MaxHeight="760" Padding="32" Classes="surface-card"
+                    IsVisible="{Binding IsCreateDialogOpen}"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <ScrollViewer MaxHeight="690">
+                    <StackPanel Spacing="24">
+                    <StackPanel Spacing="7">
+                        <TextBlock Text="Set up a match" FontSize="24" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource PrimaryTextBrush}" />
+                        <TextBlock Text="Choose which team you're analyzing and the template that defines its event and action buttons."
+                                   FontSize="13" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                    </StackPanel>
+                    <Border Background="{DynamicResource AppBackgroundBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                            CornerRadius="10" Padding="18">
+                        <StackPanel Spacing="10">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="1. TEAM" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource AccentBrush}" />
+                                <TextBlock Text="Select the team playing in this match."
+                                           FontSize="12" Foreground="{DynamicResource MutedTextBrush}" />
+                            </StackPanel>
+                            <ComboBox ItemsSource="{Binding Teams}" SelectedItem="{Binding SelectedTeam}"
+                                      IsEnabled="{Binding IsNotBusy}" PlaceholderText="Choose a team">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="domain:Team">
+                                        <TextBlock Text="{Binding Name}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Text="Add a team in Teams &amp; players before creating a match."
+                                       IsVisible="{Binding HasNoTeams}"
+                                       FontSize="11" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource WarningBrush}" />
+                        </StackPanel>
                     </Border>
-                    <TextBlock Text="Your match workspace starts here"
-                               FontSize="18" FontWeight="SemiBold" TextAlignment="Center"
-                               Foreground="{DynamicResource PrimaryTextBrush}" />
-                    <TextBlock Text="Create a match, attach its video, and choose an analysis template. Your recent matches will appear here."
-                               FontSize="13" TextWrapping="Wrap" TextAlignment="Center"
-                               Foreground="{DynamicResource SecondaryTextBrush}" />
-                    <TextBlock Text="Match creation will be connected to local storage in the next workflow slice."
-                               FontSize="11" TextWrapping="Wrap" TextAlignment="Center"
-                               Foreground="{DynamicResource MutedTextBrush}" />
+                    <Border Background="{DynamicResource AppBackgroundBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                            CornerRadius="10" Padding="18">
+                        <StackPanel Spacing="10">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="2. ANALYSIS TEMPLATE" FontSize="11" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource AccentBrush}" />
+                                <TextBlock Text="The template supplies the event and action buttons for this match."
+                                           FontSize="12" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource MutedTextBrush}" />
+                            </StackPanel>
+                            <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}"
+                                      IsEnabled="{Binding IsNotBusy}" PlaceholderText="Choose an analysis template">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="domain:Template">
+                                        <TextBlock Text="{Binding Name}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <TextBlock Text="Create a template in Templates before setting up a match."
+                                       IsVisible="{Binding HasNoTemplates}"
+                                       FontSize="11" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource WarningBrush}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="{DynamicResource AppBackgroundBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                            CornerRadius="10" Padding="18">
+                        <StackPanel Spacing="10">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="3. MATCH VIDEO (OPTIONAL)" FontSize="11"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource AccentBrush}" />
+                                <TextBlock Text="Attach a video now, or continue without one."
+                                           FontSize="12" Foreground="{DynamicResource MutedTextBrush}" />
+                            </StackPanel>
+                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                <Border Background="{DynamicResource CardBackgroundBrush}"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                        CornerRadius="7" Padding="12">
+                                    <TextBlock Text="{Binding VideoFileName}" FontSize="12"
+                                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                               ToolTip.Tip="{Binding VideoPath}"
+                                               Foreground="{DynamicResource SecondaryTextBrush}" />
+                                </Border>
+                                <Button Grid.Column="1" Content="Browse..."
+                                        Click="BrowseVideo_Click" IsEnabled="{Binding IsNotBusy}" />
+                                <Button Grid.Column="2" Content="Remove"
+                                        Command="{Binding ClearVideoCommand}"
+                                        IsEnabled="{Binding HasVideo}" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"
+                               TextWrapping="Wrap" Foreground="{DynamicResource ErrorBrush}" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                        <Button Content="Discard" Command="{Binding DiscardCreateDialogCommand}" />
+                        <Button Classes="primary-button" Content="Create match"
+                                Command="{Binding CreateMatchCommand}" />
+                    </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+            <Border Width="480" Padding="28" Classes="surface-card"
+                    IsVisible="{Binding IsDeleteDialogOpen}"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Spacing="18">
+                    <StackPanel Spacing="7">
+                        <TextBlock Text="Delete this match?" FontSize="20" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource PrimaryTextBrush}" />
+                        <TextBlock Text="{Binding PendingDeleteMatch.Team.Name}" FontSize="14"
+                                   Foreground="{DynamicResource AccentBrush}" />
+                        <TextBlock Text="This action cannot be undone. Matches with recorded events or actions cannot be deleted."
+                                   FontSize="12" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}"
+                               TextWrapping="Wrap" Foreground="{DynamicResource ErrorBrush}" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                        <Button Content="Cancel" Command="{Binding CancelDeleteMatchCommand}"
+                                IsEnabled="{Binding IsNotBusy}" />
+                        <Button Content="Delete match" Foreground="{DynamicResource ErrorBrush}"
+                                Command="{Binding ConfirmDeleteMatchCommand}"
+                                IsEnabled="{Binding IsNotBusy}" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
-        </StackPanel>
-    </ScrollViewer>
+        </Grid>
+    </Grid>
 </UserControl>

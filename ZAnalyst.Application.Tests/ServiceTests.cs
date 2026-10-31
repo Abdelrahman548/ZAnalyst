@@ -136,6 +136,9 @@ public sealed class ServiceTests
         Assert.Equal(match.Id, repository.LastId);
         Assert.Equal(TestToken, repository.LastToken);
 
+        Assert.Same(repository.Matches, await service.GetAllAsync(TestToken));
+        Assert.Equal(TestToken, repository.LastToken);
+
         await service.UpdateAsync(match.Id, match, TestToken);
         Assert.Equal(match.Id, repository.LastId);
         Assert.Same(match, repository.LastEntity);
@@ -443,6 +446,14 @@ public sealed class ServiceTests
     private sealed class MatchRepositoryFake : RepositoryFake, IMatchRepository
     {
         public Match Match { get; } = CreateMatch();
+        public IReadOnlyList<Match> Matches { get; } = [CreateMatch()];
+
+        public Task<IReadOnlyList<Match>> GetAllAsync(CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            LastToken = cancellationToken;
+            return Task.FromResult(Matches);
+        }
 
         public Task AddAsync(Match match, CancellationToken cancellationToken = default)
         {

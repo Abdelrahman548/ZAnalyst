@@ -98,6 +98,31 @@ public sealed class SqliteRepositoryTests
     }
 
     [Fact]
+    public async Task MatchServiceLoadsMatchesWithTheirTeamAndTemplate()
+    {
+        await using var connection = await OpenDatabaseAsync();
+        var options = CreateOptions(connection);
+        var team = new Team("Home");
+        var template = new Template("Standard");
+
+        await using (var seedContext = new ZAnalystDbContext(options))
+        {
+            seedContext.AddRange(team, template);
+            await seedContext.SaveChangesAsync();
+        }
+
+        await using (var context = new ZAnalystDbContext(options))
+        {
+            var service = new MatchService(new MatchRepository(context), context);
+            await service.CreateAsync(new Match(team.Id, template.Id));
+
+            var match = Assert.Single(await service.GetAllAsync());
+            Assert.Equal(team.Name, match.Team?.Name);
+            Assert.Equal(template.Name, match.Template?.Name);
+        }
+    }
+
+    [Fact]
     public async Task TeamAndPlayerServicesCreateRecordsInSqlite()
     {
         await using var connection = await OpenDatabaseAsync();

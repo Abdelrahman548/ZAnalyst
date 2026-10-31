@@ -11,6 +11,13 @@ internal sealed class MatchRepository(ZAnalystDbContext context)
     public Task AddAsync(Match match, CancellationToken cancellationToken = default) =>
         base.StageAddAsync(match, cancellationToken);
 
+    public async Task<IReadOnlyList<Match>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        await Set
+            .Include(match => match.Team)
+            .Include(match => match.Template)
+            .OrderByDescending(match => match.CreatedAt)
+            .ToListAsync(cancellationToken);
+
     public Task<Match?> GetByIdAsync(Guid matchId, CancellationToken cancellationToken = default) =>
         Set.FirstOrDefaultAsync(match => match.Id == matchId, cancellationToken);
 

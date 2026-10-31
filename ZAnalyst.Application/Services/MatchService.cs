@@ -16,6 +16,9 @@ public sealed class MatchService(IMatchRepository repository, IUnitOfWork unitOf
         return match;
     }
 
+    public Task<IReadOnlyList<Match>> GetAllAsync(CancellationToken cancellationToken = default) =>
+        _repository.GetAllAsync(cancellationToken);
+
     public Task<Match?> GetByIdAsync(Guid matchId, CancellationToken cancellationToken = default)
     {
         ServiceGuard.AgainstEmptyId(matchId, nameof(matchId));
