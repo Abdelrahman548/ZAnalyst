@@ -32,6 +32,7 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
     private bool _isBusy;
     private bool _isReloadingTemplates;
     private bool _isTemplateDialogOpen;
+    private bool _isEditingTemplateDialog;
     private bool _isDeleteTemplateConfirmationOpen;
     private bool _isButtonDialogOpen;
     private string _buttonDialogTitle = string.Empty;
@@ -43,8 +44,10 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
         _buttonService = buttonService ?? throw new ArgumentNullException(nameof(buttonService));
 
         OpenCreateTemplateCommand = new RelayCommand(_ => OpenTemplateDialog(), _ => !IsBusy);
+        OpenEditTemplateCommand = new RelayCommand(_ => OpenEditTemplateDialog(), _ => !IsBusy && SelectedTemplate is not null);
         CreateTemplateCommand = new AsyncCommand(CreateTemplateAsync, () => !IsBusy && !string.IsNullOrWhiteSpace(NewTemplateName));
         UpdateTemplateCommand = new AsyncCommand(UpdateTemplateAsync, () => !IsBusy && SelectedTemplate is not null && !string.IsNullOrWhiteSpace(EditTemplateName));
+        SaveTemplateDialogCommand = new AsyncCommand(SaveTemplateDialogAsync, CanSaveTemplateDialog);
         DeleteTemplateCommand = new RelayCommand(OpenDeleteTemplateConfirmation, _ => !IsBusy && SelectedTemplate is not null);
         ConfirmDeleteTemplateCommand = new AsyncCommand(DeleteTemplateAsync, () => !IsBusy && SelectedTemplate is not null);
         RefreshCommand = new AsyncCommand(LoadTemplatesAsync, () => !IsBusy);
@@ -103,8 +106,10 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
     ];
 
     public ICommand OpenCreateTemplateCommand { get; }
+    public ICommand OpenEditTemplateCommand { get; }
     public ICommand CreateTemplateCommand { get; }
     public ICommand UpdateTemplateCommand { get; }
+    public ICommand SaveTemplateDialogCommand { get; }
     public ICommand DeleteTemplateCommand { get; }
     public ICommand ConfirmDeleteTemplateCommand { get; }
     public ICommand DiscardTemplateCommand { get; }
@@ -127,7 +132,10 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
         private set
         {
             if (SetProperty(ref _isTemplateDialogOpen, value))
+            {
                 OnPropertyChanged(nameof(IsAnyDialogOpen));
+                NotifyCommandStates();
+            }
         }
     }
 
@@ -161,6 +169,22 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
     }
 
     public bool IsAnyDialogOpen => IsTemplateDialogOpen || IsDeleteTemplateConfirmationOpen || IsButtonDialogOpen;
+    public bool IsEditingTemplateDialog
+    {
+        get => _isEditingTemplateDialog;
+        private set
+        {
+            if (SetProperty(ref _isEditingTemplateDialog, value))
+            {
+                OnPropertyChanged(nameof(IsCreatingTemplateDialog));
+                OnPropertyChanged(nameof(TemplateDialogTitle));
+                NotifyCommandStates();
+            }
+        }
+    }
+
+    public bool IsCreatingTemplateDialog => !IsEditingTemplateDialog;
+    public string TemplateDialogTitle => IsEditingTemplateDialog ? "Edit template" : "New template";
 
     public Template? SelectedTemplate
     {
@@ -700,7 +724,19 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
 
     private void OpenTemplateDialog()
     {
+        IsEditingTemplateDialog = false;
         NewTemplateName = string.Empty;
+        ClearError();
+        IsTemplateDialogOpen = true;
+    }
+
+    private void OpenEditTemplateDialog()
+    {
+        if (SelectedTemplate is not { } template)
+            return;
+
+        EditTemplateName = template.Name;
+        IsEditingTemplateDialog = true;
         ClearError();
         IsTemplateDialogOpen = true;
     }
@@ -714,7 +750,9 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
     private void CloseTemplateDialog()
     {
         IsTemplateDialogOpen = false;
+        IsEditingTemplateDialog = false;
         NewTemplateName = string.Empty;
+        EditTemplateName = SelectedTemplate?.Name ?? string.Empty;
     }
 
     private void CancelTemplateDialog(object? parameter)
@@ -724,6 +762,27 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
         else
             CloseTemplateDialog();
     }
+
+    private async Task SaveTemplateDialogAsync()
+    {
+        if (IsEditingTemplateDialog)
+        {
+            await UpdateTemplateAsync();
+            if (!HasError)
+                CloseTemplateDialog();
+        }
+        else
+        {
+            await CreateTemplateAsync();
+        }
+    }
+
+    private bool CanSaveTemplateDialog() =>
+        !IsBusy
+        && IsTemplateDialogOpen
+        && (IsEditingTemplateDialog
+            ? SelectedTemplate is not null && !string.IsNullOrWhiteSpace(EditTemplateName)
+            : !string.IsNullOrWhiteSpace(NewTemplateName));
 
     private void OpenButtonDialog(ButtonType type)
     {
@@ -821,7 +880,8 @@ public sealed class TemplatesViewModel : WorkspacePageViewModel, INotifyProperty
     {
         foreach (var command in new ICommand[]
         {
-            OpenCreateTemplateCommand, CreateTemplateCommand, UpdateTemplateCommand, DeleteTemplateCommand,
+            OpenCreateTemplateCommand, OpenEditTemplateCommand, CreateTemplateCommand, UpdateTemplateCommand,
+            SaveTemplateDialogCommand, DeleteTemplateCommand,
             ConfirmDeleteTemplateCommand, DiscardTemplateCommand, RefreshCommand,
             CreateButtonCommand, UpdateButtonCommand, OpenEventButtonCommand, OpenActionButtonCommand,
             SaveButtonCommand, DiscardButtonCommand, SelectColorCommand, ArchiveButtonCommand,
